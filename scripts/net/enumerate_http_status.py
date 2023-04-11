@@ -25,6 +25,7 @@ Usage:
 	HTTP_511_NETWORK_AUTHENTICATION_REQUIRED = 511, /**< Network Authentication Required */
 """
 
+
 from lxml import html
 import requests
 import re
@@ -37,7 +38,7 @@ codes = tree.xpath('//code/text()')
 codes2 = {}
 for c in codes:
     if re.match('[0-9][0-9][0-9] [a-zA-Z].*', c):
-        key = int(c[0:3])
+        key = int(c[:3])
         val = c[4:]
         codes2[key] = val
 

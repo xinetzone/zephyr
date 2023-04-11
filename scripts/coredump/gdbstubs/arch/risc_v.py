@@ -68,26 +68,26 @@ class GdbStub_RISC_V(GdbStub):
         arch_data_blk = self.logfile.get_arch_data()['data']
         tu = struct.unpack(self.ARCH_DATA_BLK_STRUCT, arch_data_blk)
 
-        self.registers = dict()
-
-        self.registers[RegNum.RA] = tu[0]
-        self.registers[RegNum.TP] = tu[1]
-        self.registers[RegNum.T0] = tu[2]
-        self.registers[RegNum.T1] = tu[3]
-        self.registers[RegNum.T2] = tu[4]
-        self.registers[RegNum.A0] = tu[5]
-        self.registers[RegNum.A1] = tu[6]
-        self.registers[RegNum.A2] = tu[7]
-        self.registers[RegNum.A3] = tu[8]
-        self.registers[RegNum.A4] = tu[9]
-        self.registers[RegNum.A5] = tu[10]
-        self.registers[RegNum.A6] = tu[11]
-        self.registers[RegNum.A7] = tu[12]
-        self.registers[RegNum.T3] = tu[13]
-        self.registers[RegNum.T4] = tu[14]
-        self.registers[RegNum.T5] = tu[15]
-        self.registers[RegNum.T6] = tu[16]
-        self.registers[RegNum.PC] = tu[17]
+        self.registers = {
+            RegNum.RA: tu[0],
+            RegNum.TP: tu[1],
+            RegNum.T0: tu[2],
+            RegNum.T1: tu[3],
+            RegNum.T2: tu[4],
+            RegNum.A0: tu[5],
+            RegNum.A1: tu[6],
+            RegNum.A2: tu[7],
+            RegNum.A3: tu[8],
+            RegNum.A4: tu[9],
+            RegNum.A5: tu[10],
+            RegNum.A6: tu[11],
+            RegNum.A7: tu[12],
+            RegNum.T3: tu[13],
+            RegNum.T4: tu[14],
+            RegNum.T5: tu[15],
+            RegNum.T6: tu[16],
+            RegNum.PC: tu[17],
+        }
 
     def handle_register_group_read_packet(self):
         reg_fmt = "<I"

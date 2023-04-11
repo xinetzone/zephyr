@@ -41,7 +41,7 @@ author = "The Zephyr Project Contributors"
 
 # parse version from 'VERSION' file
 with open(ZEPHYR_BASE / "VERSION") as f:
-    m = re.match(
+    if m := re.match(
         (
             r"^VERSION_MAJOR\s*=\s*(\d+)$\n"
             + r"^VERSION_MINOR\s*=\s*(\d+)$\n"
@@ -51,17 +51,15 @@ with open(ZEPHYR_BASE / "VERSION") as f:
         ),
         f.read(),
         re.MULTILINE,
-    )
-
-    if not m:
-        sys.stderr.write("Warning: Could not extract kernel version\n")
-        version = "Unknown"
-    else:
+    ):
         major, minor, patch, extra = m.groups(1)
         version = ".".join((major, minor, patch))
         if extra:
-            version += "-" + extra
+            version += f"-{extra}"
 
+    else:
+        sys.stderr.write("Warning: Could not extract kernel version\n")
+        version = "Unknown"
 release = version
 
 # -- General configuration ------------------------------------------------
@@ -153,7 +151,7 @@ is_release = tags.has("release")  # pylint: disable=undefined-variable
 reference_prefix = ""
 if tags.has("publish"):  # pylint: disable=undefined-variable
     reference_prefix = f"/{version}" if is_release else "/latest"
-docs_title = "Docs / {}".format(version if is_release else "Latest")
+docs_title = f'Docs / {version if is_release else "Latest"}'
 html_context = {
     "show_license": True,
     "docs_title": docs_title,

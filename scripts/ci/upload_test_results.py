@@ -52,9 +52,7 @@ def parse_args():
     parser.add_argument('-i', '--index', help='index to push to.', required=True)
     parser.add_argument('files', metavar='FILE', nargs='+', help='file with test data.')
 
-    args = parser.parse_args()
-
-    return args
+    return parser.parse_args()
 
 if __name__ == '__main__':
     main()

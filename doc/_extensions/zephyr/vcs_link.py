@@ -51,12 +51,14 @@ def vcs_link_get_url(app: Sphinx, pagename: str) -> Optional[str]:
         if re.match(exclude, pagename):
             return None
 
-    found_prefix = ""
-    for pattern, prefix in app.config.vcs_link_prefixes.items():
-        if re.match(pattern, pagename):
-            found_prefix = prefix
-            break
-
+    found_prefix = next(
+        (
+            prefix
+            for pattern, prefix in app.config.vcs_link_prefixes.items()
+            if re.match(pattern, pagename)
+        ),
+        "",
+    )
     return "/".join(
         [
             app.config.vcs_link_base_url,

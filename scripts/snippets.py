@@ -293,9 +293,9 @@ invalid {SNIPPET_YML} file: {snippet_yml}
     return snippet_data
 
 def check_for_errors(snippets: Snippets) -> None:
-    unknown_snippets = sorted(snippet for snippet in snippets.requested
-                              if snippet not in snippets)
-    if unknown_snippets:
+    if unknown_snippets := sorted(
+        snippet for snippet in snippets.requested if snippet not in snippets
+    ):
         all_snippets = '\n    '.join(sorted(snippets))
         _err(f'''\
 snippets not found: {', '.join(unknown_snippets)}

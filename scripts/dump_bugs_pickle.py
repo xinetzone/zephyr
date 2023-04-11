@@ -23,10 +23,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def issue_has_label(issue: Issue, label: str) -> bool:
-    for lbl in issue.labels:
-        if lbl.name == label:
-            return True
-    return False
+    return any(lbl.name == label for lbl in issue.labels)
 
 def is_open_bug(issue: Issue) -> bool:
     return (issue.pull_request is None and

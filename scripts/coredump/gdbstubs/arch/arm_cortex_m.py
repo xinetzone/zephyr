@@ -58,17 +58,17 @@ class GdbStub_ARM_CortexM(GdbStub):
         elif arch_data_ver == 2:
             tu = struct.unpack(self.ARCH_DATA_BLK_STRUCT_V2, arch_data_blk)
 
-        self.registers = dict()
-
-        self.registers[RegNum.R0] = tu[0]
-        self.registers[RegNum.R1] = tu[1]
-        self.registers[RegNum.R2] = tu[2]
-        self.registers[RegNum.R3] = tu[3]
-        self.registers[RegNum.R12] = tu[4]
-        self.registers[RegNum.LR] = tu[5]
-        self.registers[RegNum.PC] = tu[6]
-        self.registers[RegNum.XPSR] = tu[7]
-        self.registers[RegNum.SP] = tu[8]
+        self.registers = {
+            RegNum.R0: tu[0],
+            RegNum.R1: tu[1],
+            RegNum.R2: tu[2],
+            RegNum.R3: tu[3],
+            RegNum.R12: tu[4],
+            RegNum.LR: tu[5],
+            RegNum.PC: tu[6],
+            RegNum.XPSR: tu[7],
+            RegNum.SP: tu[8],
+        }
 
         if arch_data_ver > 1:
             self.registers[RegNum.R4]  = tu[9]

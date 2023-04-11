@@ -59,16 +59,16 @@ def modulelink(default_module=None, format="blob"):
 
         m = re.search(r"(.*)\s*<(.*)>", text)
         if m:
-            link_text = m.group(1)
-            link = m.group(2)
+            link_text = m[1]
+            link = m[2]
         else:
             link_text = text
             link = text
 
         module_match = re.search(r"(.+?):\s*(.+)", link)
         if module_match:
-            module = module_match.group(1).strip()
-            link = module_match.group(2).strip()
+            module = module_match[1].strip()
+            link = module_match[2].strip()
 
         # Try to get a module repository's GitHub URL from the manifest.
         #

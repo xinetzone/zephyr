@@ -36,24 +36,7 @@ def gendata(f, index, run_date=None):
 def main():
     args = parse_args()
 
-    if args.index:
-        index_name = args.index
-    else:
-        index_name = 'tests-zephyr-1'
-
-    settings = {
-            "index": {
-                "number_of_shards": 4
-                }
-            }
-    mappings = {
-            "properties": {
-                "execution_time": {"type": "float"},
-                "retries": {"type": "integer"},
-                "testcases.execution_time": {"type": "float"},
-                }
-            }
-
+    index_name = args.index or 'tests-zephyr-1'
     if args.dry_run:
         xx = None
         for f in args.files:
@@ -69,6 +52,19 @@ def main():
         )
 
     if args.create_index:
+        settings = {
+                "index": {
+                    "number_of_shards": 4
+                    }
+                }
+        mappings = {
+                "properties": {
+                    "execution_time": {"type": "float"},
+                    "retries": {"type": "integer"},
+                    "testcases.execution_time": {"type": "float"},
+                    }
+                }
+
         es.indices.create(index=index_name, mappings=mappings, settings=settings)
     else:
         if args.run_date:
@@ -85,9 +81,7 @@ def parse_args():
     parser.add_argument('-r', '--run-date', help='Run date in ISO format', required=False)
     parser.add_argument('files', metavar='FILE', nargs='+', help='file with test data.')
 
-    args = parser.parse_args()
-
-    return args
+    return parser.parse_args()
 
 
 if __name__ == '__main__':

@@ -26,7 +26,7 @@ def main():
     if args.zephyr_base:
         os.environ['ZEPHYR_BASE'] = args.zephyr_base
 
-    print("Parsing " + args.kconfig_file)
+    print(f"Parsing {args.kconfig_file}")
     kconf = Kconfig(args.kconfig_file, warn_to_stderr=False,
                     suppress_traceback=True)
 
@@ -130,9 +130,7 @@ def check_assigned_sym_values(kconf):
             msg = f"{sym.name_and_loc} was assigned the value '{user_value}'" \
                   f" but got the value '{sym.str_value}'. "
 
-            # List any unsatisfied 'depends on' dependencies in the warning
-            mdeps = missing_deps(sym)
-            if mdeps:
+            if mdeps := missing_deps(sym):
                 expr_strs = []
                 for expr in mdeps:
                     estr = expr_str(expr)
@@ -281,11 +279,11 @@ def warn(msg):
     # reference link, and add some extra newlines to set the message off from
     # surrounding text (this usually gets printed as part of spammy CMake
     # output)
-    print("\n" + textwrap.fill("warning: " + msg, 100) + "\n", file=sys.stderr)
+    print("\n" + textwrap.fill(f"warning: {msg}", 100) + "\n", file=sys.stderr)
 
 
 def err(msg):
-    sys.exit("\n" + textwrap.fill("error: " + msg, 100) + "\n")
+    sys.exit("\n" + textwrap.fill(f"error: {msg}", 100) + "\n")
 
 
 if __name__ == "__main__":

@@ -35,8 +35,14 @@ from devicetree import edtlib
 # The set of binding types whose values can be iterated over with
 # DT_FOREACH_PROP_ELEM(). If you change this, make sure to update the
 # doxygen string for that macro.
-FOREACH_PROP_ELEM_TYPES = set(['string', 'array', 'uint8-array', 'string-array',
-                               'phandles', 'phandle-array'])
+FOREACH_PROP_ELEM_TYPES = {
+    'string',
+    'array',
+    'uint8-array',
+    'string-array',
+    'phandles',
+    'phandle-array',
+}
 
 class LogFormatter(logging.Formatter):
     '''A log formatter that prints the level name in lower case,
@@ -59,7 +65,7 @@ def main():
 
     vendor_prefixes = {}
     for prefixes_file in args.vendor_prefixes:
-        vendor_prefixes.update(edtlib.load_vendor_prefixes_txt(prefixes_file))
+        vendor_prefixes |= edtlib.load_vendor_prefixes_txt(prefixes_file)
 
     try:
         edt = edtlib.EDT(args.dts, args.bindings_dirs,
@@ -110,7 +116,7 @@ def main():
             node.z_path_id = node_z_path_id(node)
 
         # Check to see if we have duplicate "zephyr,memory-region" property values.
-        regions = dict()
+        regions = {}
         for node in sorted(edt.nodes, key=lambda node: node.dep_ordinal):
             if 'zephyr,memory-region' in node.props:
                 region = node.props['zephyr,memory-region'].val
@@ -134,7 +140,7 @@ def main():
                 out_dt_define(f"{node.z_path_id}_PARENT",
                               f"DT_{node.parent.z_path_id}")
 
-                out_comment(f"Node's index in its parent's list of children:")
+                out_comment("Node's index in its parent's list of children:")
                 out_dt_define(f"{node.z_path_id}_CHILD_IDX",
                               node.parent.child_index(node))
 
@@ -317,13 +323,13 @@ def write_idents_and_existence(node):
     idents.extend(f"N_NODELABEL_{str2ident(label)}" for label in node.labels)
 
     out_comment("Existence and alternate IDs:")
-    out_dt_define(node.z_path_id + "_EXISTS", 1)
+    out_dt_define(f"{node.z_path_id}_EXISTS", 1)
 
     # Only determine maxlen if we have any idents
     if idents:
-        maxlen = max(len("DT_" + ident) for ident in idents)
+        maxlen = max(len(f"DT_{ident}") for ident in idents)
     for ident in idents:
-        out_dt_define(ident, "DT_" + node.z_path_id, width=maxlen)
+        out_dt_define(ident, f"DT_{node.z_path_id}", width=maxlen)
 
 
 def write_bus(node):
@@ -493,12 +499,12 @@ def write_interrupts(node):
             idx_vals.append((f"{path_id}_IRQ_IDX_{i}_EXISTS", 1))
             idx_macro = f"{path_id}_IRQ_IDX_{i}_VAL_{name}"
             idx_vals.append((idx_macro, cell_value))
-            idx_vals.append((idx_macro + "_EXISTS", 1))
+            idx_vals.append((f"{idx_macro}_EXISTS", 1))
             if irq.name:
                 name_macro = \
                     f"{path_id}_IRQ_NAME_{str2ident(irq.name)}_VAL_{name}"
                 name_vals.append((name_macro, f"DT_{idx_macro}"))
-                name_vals.append((name_macro + "_EXISTS", 1))
+                name_vals.append((f"{name_macro}_EXISTS", 1))
 
     for macro, val in idx_vals:
         out_dt_define(macro, val)
@@ -615,7 +621,7 @@ def write_gpio_hogs(node):
     macro = f"{node.z_path_id}_GPIO_HOGS"
     macro2val = {}
     for i, entry in enumerate(node.gpio_hogs):
-        macro2val.update(controller_and_data_macros(entry, i, macro))
+        macro2val |= controller_and_data_macros(entry, i, macro)
 
     if macro2val:
         out_comment("GPIO hog properties:")
@@ -645,40 +651,40 @@ def write_vanilla_props(node):
             macro2val[macro] = val
 
         if prop.spec.type == 'string':
-            macro2val[macro + "_STRING_UNQUOTED"] = prop.val
-            macro2val[macro + "_STRING_TOKEN"] = prop.val_as_token
-            macro2val[macro + "_STRING_UPPER_TOKEN"] = prop.val_as_token.upper()
+            macro2val[f"{macro}_STRING_UNQUOTED"] = prop.val
+            macro2val[f"{macro}_STRING_TOKEN"] = prop.val_as_token
+            macro2val[f"{macro}_STRING_UPPER_TOKEN"] = prop.val_as_token.upper()
 
         if prop.enum_index is not None:
             # DT_N_<node-id>_P_<prop-id>_ENUM_IDX
-            macro2val[macro + "_ENUM_IDX"] = prop.enum_index
+            macro2val[f"{macro}_ENUM_IDX"] = prop.enum_index
             spec = prop.spec
 
             if spec.enum_tokenizable:
                 as_token = prop.val_as_token
 
                 # DT_N_<node-id>_P_<prop-id>_ENUM_TOKEN
-                macro2val[macro + "_ENUM_TOKEN"] = as_token
+                macro2val[f"{macro}_ENUM_TOKEN"] = as_token
 
                 if spec.enum_upper_tokenizable:
                     # DT_N_<node-id>_P_<prop-id>_ENUM_UPPER_TOKEN
-                    macro2val[macro + "_ENUM_UPPER_TOKEN"] = as_token.upper()
+                    macro2val[f"{macro}_ENUM_UPPER_TOKEN"] = as_token.upper()
 
         if "phandle" in prop.type:
-            macro2val.update(phandle_macros(prop, macro))
+            macro2val |= phandle_macros(prop, macro)
         elif "array" in prop.type:
             # DT_N_<node-id>_P_<prop-id>_IDX_<i>
             # DT_N_<node-id>_P_<prop-id>_IDX_<i>_EXISTS
             for i, subval in enumerate(prop.val):
                 if isinstance(subval, str):
-                    macro2val[macro + f"_IDX_{i}"] = quote_str(subval)
+                    macro2val[f"{macro}_IDX_{i}"] = quote_str(subval)
                     subval_as_token = edtlib.str_as_token(subval)
-                    macro2val[macro + f"_IDX_{i}_STRING_UNQUOTED"] = subval
-                    macro2val[macro + f"_IDX_{i}_STRING_TOKEN"] = subval_as_token
-                    macro2val[macro + f"_IDX_{i}_STRING_UPPER_TOKEN"] = subval_as_token.upper()
+                    macro2val[f"{macro}_IDX_{i}_STRING_UNQUOTED"] = subval
+                    macro2val[f"{macro}_IDX_{i}_STRING_TOKEN"] = subval_as_token
+                    macro2val[f"{macro}_IDX_{i}_STRING_UPPER_TOKEN"] = subval_as_token.upper()
                 else:
-                    macro2val[macro + f"_IDX_{i}"] = subval
-                macro2val[macro + f"_IDX_{i}_EXISTS"] = 1
+                    macro2val[f"{macro}_IDX_{i}"] = subval
+                macro2val[f"{macro}_IDX_{i}_EXISTS"] = 1
 
         if prop.type in FOREACH_PROP_ELEM_TYPES:
             # DT_N_<node-id>_P_<prop-id>_FOREACH_PROP_ELEM
@@ -705,7 +711,7 @@ def write_vanilla_props(node):
         plen = prop_len(prop)
         if plen is not None:
             # DT_N_<node-id>_P_<prop-id>_LEN
-            macro2val[macro + "_LEN"] = plen
+            macro2val[f"{macro}_LEN"] = plen
 
         macro2val[f"{macro}_EXISTS"] = 1
 
@@ -829,25 +835,18 @@ def phandle_macros(prop, macro):
                 ret[f"{macro}_IDX_{i}_EXISTS"] = 0
                 continue
 
-            ret.update(controller_and_data_macros(entry, i, macro))
+            ret |= controller_and_data_macros(entry, i, macro)
 
     return ret
 
 
 def controller_and_data_macros(entry, i, macro):
-    # Helper procedure used by phandle_macros().
-    #
-    # Its purpose is to write the "controller" (i.e. label property of
-    # the phandle's node) and associated data macros for a
-    # ControllerAndData.
-
-    ret = {}
     data = entry.data
 
-    # DT_N_<node-id>_P_<prop-id>_IDX_<i>_EXISTS
-    ret[f"{macro}_IDX_{i}_EXISTS"] = 1
-    # DT_N_<node-id>_P_<prop-id>_IDX_<i>_PH
-    ret[f"{macro}_IDX_{i}_PH"] = f"DT_{entry.controller.z_path_id}"
+    ret = {
+        f"{macro}_IDX_{i}_EXISTS": 1,
+        f"{macro}_IDX_{i}_PH": f"DT_{entry.controller.z_path_id}",
+    }
     # DT_N_<node-id>_P_<prop-id>_IDX_<i>_VAL_<VAL>
     for cell, val in data.items():
         ret[f"{macro}_IDX_{i}_VAL_{str2ident(cell)}"] = val
@@ -944,7 +943,7 @@ def write_global_macros(edt):
                         val = f"DT_{child.z_path_id}"
 
                         out_dt_define(macro, val)
-                        out_dt_define(macro + "_EXISTS", 1)
+                        out_dt_define(f"{macro}_EXISTS", 1)
 
     out_comment('Macros for compatibles with status "okay" nodes\n')
     for compat, okay_nodes in edt.compat2okay.items():
@@ -987,7 +986,7 @@ def out_dt_define(macro, val, width=None, deprecation_msg=None):
     # generate a warning if used, via __WARN(<deprecation_msg>)).
     #
     # Returns the full generated macro for 'macro', with leading "DT_".
-    ret = "DT_" + macro
+    ret = f"DT_{macro}"
     out_define(ret, val, width=width, deprecation_msg=deprecation_msg)
     return ret
 
@@ -1025,17 +1024,14 @@ def out_comment(s, blank_before=True):
         #    * empty line before this line
         #    */
         res = ["/*"]
-        for line in s.splitlines():
-            # Avoid an extra space after '*' for empty lines. They turn red in
-            # Vim if space error checking is on, which is annoying.
-            res.append(" *" if not line.strip() else " * " + line)
+        res.extend(f" * {line}" if line.strip() else " *" for line in s.splitlines())
         res.append(" */")
         print("\n".join(res), file=header_file)
     else:
         # Format single-line comments like
         #
         #   /* foo bar */
-        print("/* " + s + " */", file=header_file)
+        print(f"/* {s} */", file=header_file)
 
 
 def escape(s):

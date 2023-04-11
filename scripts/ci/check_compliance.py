@@ -240,18 +240,15 @@ class DevicetreeBindingsCheck(ComplianceTest):
         Returns a list of dts/bindings/**/*.yaml files
         """
 
-        dt_bindings = []
-        for file_name in get_files(filter="d"):
-            if 'dts/bindings/' in file_name and file_name.endswith('.yaml'):
-                dt_bindings.append(file_name)
-
-        return dt_bindings
+        return [
+            file_name
+            for file_name in get_files(filter="d")
+            if 'dts/bindings/' in file_name and file_name.endswith('.yaml')
+        ]
 
     def required_false_check(self, dts_binding):
         with open(dts_binding) as file:
-            line_number = 0
-            for line in file:
-                line_number += 1
+            for line_number, line in enumerate(file, start=1):
                 if 'required: false' in line:
                     self.fmtd_failure(
                         'warning', 'Devicetree Bindings', dts_binding,
@@ -299,7 +296,7 @@ class KconfigCheck(ComplianceTest):
         except subprocess.CalledProcessError as ex:
             self.error(ex.output.decode("utf-8"))
 
-        modules_dir = ZEPHYR_BASE + '/modules'
+        modules_dir = f'{ZEPHYR_BASE}/modules'
         modules = [name for name in os.listdir(modules_dir) if
                    os.path.exists(os.path.join(modules_dir, name, 'Kconfig'))]
 
@@ -308,10 +305,9 @@ class KconfigCheck(ComplianceTest):
 
         with open(modules_file, 'w') as fp_module_file:
             for module in modules:
-                fp_module_file.write("ZEPHYR_{}_KCONFIG = {}\n".format(
-                    re.sub('[^a-zA-Z0-9]', '_', module).upper(),
-                    modules_dir + '/' + module + '/Kconfig'
-                ))
+                fp_module_file.write(
+                    f"ZEPHYR_{re.sub('[^a-zA-Z0-9]', '_', module).upper()}_KCONFIG = {modules_dir}/{module}/Kconfig\n"
+                )
             fp_module_file.write(content)
 
     def get_kconfig_dts(self, kconfig_dts_file):
@@ -344,7 +340,7 @@ class KconfigCheck(ComplianceTest):
         # used
         kconfig_path = os.path.join(ZEPHYR_BASE, "scripts", "kconfig")
         if not os.path.exists(kconfig_path):
-            self.error(kconfig_path + " not found")
+            self.error(f"{kconfig_path} not found")
 
         sys.path.insert(0, kconfig_path)
         # Import globally so that e.g. kconfiglib.Symbol can be referenced in
@@ -473,23 +469,13 @@ check Kconfig guidelines.
                 continue
 
     def check_no_pointless_menuconfigs(self, kconf):
-        # Checks that there are no pointless 'menuconfig' symbols without
-        # children in the Kconfig files
-
-        bad_mconfs = []
-        for node in kconf.node_iter():
-            # 'kconfiglib' is global
-            # pylint: disable=undefined-variable
-
-            # Avoid flagging empty regular menus and choices, in case people do
-            # something with 'osource' (could happen for 'menuconfig' symbols
-            # too, though it's less likely)
-            if node.is_menuconfig and not node.list and \
-               isinstance(node.item, kconfiglib.Symbol):
-
-                bad_mconfs.append(node)
-
-        if bad_mconfs:
+        if bad_mconfs := [
+            node
+            for node in kconf.node_iter()
+            if node.is_menuconfig
+            and not node.list
+            and isinstance(node.item, kconfiglib.Symbol)
+        ]:
             self.failure("""\
 Found pointless 'menuconfig' symbols without children. Use regular 'config'
 symbols instead. See
@@ -503,10 +489,9 @@ https://docs.zephyrproject.org/latest/guides/kconfig/tips.html#menuconfig-symbol
         Checks that there are no references to undefined Kconfig symbols within
         the Kconfig files
         """
-        undef_ref_warnings = "\n\n\n".join(warning for warning in kconf.warnings
-                                           if "undefined symbol" in warning)
-
-        if undef_ref_warnings:
+        if undef_ref_warnings := "\n\n\n".join(
+            warning for warning in kconf.warnings if "undefined symbol" in warning
+        ):
             self.failure(f"Undefined Kconfig symbols:\n\n {undef_ref_warnings}")
 
     def check_no_undef_outside_kconfig(self, kconf):
@@ -749,16 +734,19 @@ failure.
         # be simplified to 'source "Kconfig[.zephyr]"'
 
         with open(os.path.join(GIT_TOP, fname), encoding="utf-8") as f:
-            # Look for e.g. rsource as well, for completeness
-            match = re.search(
+            if match := re.search(
                 r'^\s*(?:o|r|or)?source\s*"\$\(?ZEPHYR_BASE\)?/(Kconfig(?:\.zephyr)?)"',
-                f.read(), re.MULTILINE)
-
-            if match:
-                self.failure("""
+                f.read(),
+                re.MULTILINE,
+            ):
+                self.failure(
+                    """
 Redundant 'source "$(ZEPHYR_BASE)/{0}" in '{1}'. Just do 'source "{0}"'
 instead. The $srctree environment variable already points to the Zephyr root,
-and all 'source's are relative to it.""".format(match.group(1), fname))
+and all 'source's are relative to it.""".format(
+                        match[1], fname
+                    )
+                )
 
     def check_redundant_document_separator(self, fname):
         # Looks for redundant '...' document separators in bindings
@@ -799,11 +787,14 @@ class GitLint(ComplianceTest):
         # By default gitlint looks for .gitlint configuration only in
         # the current directory
         try:
-            subprocess.run('gitlint --commits ' + COMMIT_RANGE,
-                           check=True,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT,
-                           shell=True, cwd=GIT_TOP)
+            subprocess.run(
+                f'gitlint --commits {COMMIT_RANGE}',
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=True,
+                cwd=GIT_TOP,
+            )
 
         except subprocess.CalledProcessError as ex:
             self.failure(ex.output.decode("utf-8"))
@@ -839,13 +830,17 @@ class PyLint(ComplianceTest):
 
         python_environment = os.environ.copy()
         if "PYTHONPATH" in python_environment:
-            python_environment["PYTHONPATH"] = check_script_dir + ":" + \
-                                               python_environment["PYTHONPATH"]
+            python_environment["PYTHONPATH"] = (
+                f"{check_script_dir}:" + python_environment["PYTHONPATH"]
+            )
         else:
             python_environment["PYTHONPATH"] = check_script_dir
 
-        pylintcmd = ["pylint", "--rcfile=" + pylintrc,
-                     "--load-plugins=argparse-checker"] + py_files
+        pylintcmd = [
+            "pylint",
+            f"--rcfile={pylintrc}",
+            "--load-plugins=argparse-checker",
+        ] + py_files
         logger.info(cmd2str(pylintcmd))
         try:
             subprocess.run(pylintcmd,
@@ -905,33 +900,28 @@ class Identity(ComplianceTest):
             sha = ""
             parsed_addr = None
             for line in commit.split("\n"):
-                match = re.search(r"^commit\s([^\s]*)", line)
-                if match:
-                    sha = match.group(1)
-                match = re.search(r"^Author:\s(.*)", line)
-                if match:
-                    author = match.group(1)
+                if match := re.search(r"^commit\s([^\s]*)", line):
+                    sha = match[1]
+                if match := re.search(r"^Author:\s(.*)", line):
+                    author = match[1]
                     parsed_addr = parseaddr(author)
-                match = re.search(r"signed-off-by:\s(.*)", line, re.IGNORECASE)
-                if match:
-                    signed.append(match.group(1))
+                if match := re.search(
+                    r"signed-off-by:\s(.*)", line, re.IGNORECASE
+                ):
+                    signed.append(match[1])
 
             error1 = f"{sha}: author email ({author}) needs to match one of " \
-                     f"the signed-off-by entries."
+                         f"the signed-off-by entries."
             error2 = f"{sha}: author email ({author}) does not follow the " \
-                     f"syntax: First Last <email>."
+                         f"syntax: First Last <email>."
             error3 = f"{sha}: author email ({author}) must be a real email " \
-                     f"and cannot end in @users.noreply.github.com"
+                         f"and cannot end in @users.noreply.github.com"
             failure = None
             if author not in signed:
                 failure = error1
 
             if not parsed_addr or len(parsed_addr[0].split(" ")) < 2:
-                if not failure:
-
-                    failure = error2
-                else:
-                    failure = failure + "\n" + error2
+                failure = failure + "\n" + error2 if failure else error2
             elif parsed_addr[1].endswith("@users.noreply.github.com"):
                 failure = error3
 
@@ -955,10 +945,14 @@ class BinaryFiles(ComplianceTest):
         for stat in git("diff", "--numstat", "--diff-filter=A",
                         COMMIT_RANGE).splitlines():
             added, deleted, fname = stat.split("\t")
-            if added == "-" and deleted == "-":
-                if (fname.startswith(BINARY_ALLOW_PATHS) and
-                    fname.endswith(BINARY_ALLOW_EXT)):
-                    continue
+            if (
+                added == "-"
+                and deleted == "-"
+                and (
+                    not fname.startswith(BINARY_ALLOW_PATHS)
+                    or not fname.endswith(BINARY_ALLOW_EXT)
+                )
+            ):
                 self.failure(f"Binary file not allowed: {fname}")
 
 
@@ -1188,7 +1182,7 @@ def _main(args):
             continue
 
         if testcase.name.lower() in excluded:
-            print("Skipping " + testcase.name)
+            print(f"Skipping {testcase.name}")
             continue
 
         test = testcase()

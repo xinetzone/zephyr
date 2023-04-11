@@ -30,9 +30,7 @@ except ImportError:
 try:
     import pty
 except ImportError as capture_error:
-    if os.name == "nt":  # "nt" means that program is running on Windows OS
-        pass  # "--device-serial-pty" option is not supported on Windows OS
-    else:
+    if os.name != "nt":
         raise capture_error
 
 logger = logging.getLogger('twister')
@@ -45,11 +43,7 @@ class HarnessImporter:
     def __init__(self, name):
         sys.path.insert(0, os.path.join(ZEPHYR_BASE, "scripts/pylib/twister/twisterlib"))
         module = __import__("harness")
-        if name:
-            my_class = getattr(module, name)
-        else:
-            my_class = getattr(module, "Test")
-
+        my_class = getattr(module, name) if name else getattr(module, "Test")
         self.instance = my_class()
 
 class Handler:
@@ -115,8 +109,7 @@ class Handler:
         (and not in reverse).
         """
         expected_suite_names = self.instance.testsuite.ztest_suite_names
-        if not expected_suite_names or \
-                not harness_state == "passed":
+        if not expected_suite_names or harness_state != "passed":
             return
         if not detected_suite_names:
             self._missing_suite_name(expected_suite_names, handler_time)
@@ -134,9 +127,9 @@ class Handler:
         self.instance.execution_time = handler_time
         for tc in self.instance.testcases:
             tc.status = "failed"
-        self.instance.reason = f"Testsuite mismatch"
+        self.instance.reason = "Testsuite mismatch"
         logger.debug("Test suite names were not printed or some of them in " \
-                     "output do not correspond with expected: %s",
+                         "output do not correspond with expected: %s",
                      str(expected_suite_names))
 
     def _final_handle_actions(self, harness, handler_time):
@@ -204,13 +197,14 @@ class BinaryHandler(Handler):
                     log_out_fp.write(line_decoded)
                     log_out_fp.flush()
                     harness.handle(stripped_line)
-                    if harness.state:
-                        if not timeout_extended or harness.capture_coverage:
-                            timeout_extended = True
-                            if harness.capture_coverage:
-                                timeout_time = time.time() + 30
-                            else:
-                                timeout_time = time.time() + 2
+                    if harness.state and (
+                        not timeout_extended or harness.capture_coverage
+                    ):
+                        timeout_extended = True
+                        if harness.capture_coverage:
+                            timeout_time = time.time() + 30
+                        else:
+                            timeout_time = time.time() + 2
                 else:
                     reader_t.join(0)
                     break
@@ -237,12 +231,14 @@ class BinaryHandler(Handler):
 
         run_valgrind = False
         if self.options.enable_valgrind:
-            command = ["valgrind", "--error-exitcode=2",
-                       "--leak-check=full",
-                       "--suppressions=" + ZEPHYR_BASE + "/scripts/valgrind.supp",
-                       "--log-file=" + self.build_dir + "/valgrind.log",
-                       "--track-origins=yes",
-                       ] + command
+            command = [
+                "valgrind",
+                "--error-exitcode=2",
+                "--leak-check=full",
+                f"--suppressions={ZEPHYR_BASE}/scripts/valgrind.supp",
+                f"--log-file={self.build_dir}/valgrind.log",
+                "--track-origins=yes",
+            ] + command
             run_valgrind = True
 
         # Only valid for native_posix
@@ -260,17 +256,17 @@ class BinaryHandler(Handler):
         env = os.environ.copy()
         if self.options.enable_asan:
             env["ASAN_OPTIONS"] = "log_path=stdout:" + \
-                                  env.get("ASAN_OPTIONS", "")
+                                      env.get("ASAN_OPTIONS", "")
             if not self.options.enable_lsan:
                 env["ASAN_OPTIONS"] += "detect_leaks=0"
 
         if self.options.enable_ubsan:
             env["UBSAN_OPTIONS"] = "log_path=stdout:halt_on_error=1:" + \
-                                  env.get("UBSAN_OPTIONS", "")
+                                      env.get("UBSAN_OPTIONS", "")
 
         with subprocess.Popen(command, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, cwd=self.build_dir, env=env) as proc:
-            logger.debug("Spawning BinaryHandler Thread for %s" % self.name)
+                                  stderr=subprocess.PIPE, cwd=self.build_dir, env=env) as proc:
+            logger.debug(f"Spawning BinaryHandler Thread for {self.name}")
             t = threading.Thread(target=self._output_handler, args=(proc, harness,), daemon=True)
             t.start()
             t.join()
@@ -284,8 +280,17 @@ class BinaryHandler(Handler):
         handler_time = time.time() - start_time
 
         if self.options.coverage:
-            subprocess.call(["GCOV_PREFIX=" + self.build_dir,
-                             "gcov", self.sourcedir, "-b", "-s", self.build_dir], shell=True)
+            subprocess.call(
+                [
+                    f"GCOV_PREFIX={self.build_dir}",
+                    "gcov",
+                    self.sourcedir,
+                    "-b",
+                    "-s",
+                    self.build_dir,
+                ],
+                shell=True,
+            )
 
         # FIXME: This is needed when killing the simulator, the console is
         # garbled and needs to be reset. Did not find a better way to do that.
@@ -345,62 +350,58 @@ class DeviceHandler(Handler):
             harness.handle(None)
             return
 
-        log_out_fp = open(self.log, "wt")
+        with open(self.log, "wt") as log_out_fp:
+            if self.options.coverage:
+                # Set capture_coverage to True to indicate that right after
+                # test results we should get coverage data, otherwise we exit
+                # from the test.
+                harness.capture_coverage = True
 
-        if self.options.coverage:
-            # Set capture_coverage to True to indicate that right after
-            # test results we should get coverage data, otherwise we exit
-            # from the test.
-            harness.capture_coverage = True
+            # Clear serial leftover.
+            ser.reset_input_buffer()
 
-        # Clear serial leftover.
-        ser.reset_input_buffer()
-
-        while ser.isOpen():
-            if halt_event.is_set():
-                logger.debug('halted')
-                ser.close()
-                break
-
-            try:
-                if not ser.in_waiting:
-                    # no incoming bytes are waiting to be read from
-                    # the serial input buffer, let other threads run
-                    time.sleep(0.001)
-                    continue
-            # maybe the serial port is still in reset
-            # check status may cause error
-            # wait for more time
-            except OSError:
-                time.sleep(0.001)
-                continue
-
-            serial_line = None
-            try:
-                serial_line = ser.readline()
-            except TypeError:
-                pass
-            # ignore SerialException which may happen during the serial device
-            # power off/on process.
-            except serial.SerialException:
-                pass
-
-            # Just because ser_fileno has data doesn't mean an entire line
-            # is available yet.
-            if serial_line:
-                sl = serial_line.decode('utf-8', 'ignore').lstrip()
-                logger.debug("DEVICE: {0}".format(sl.rstrip()))
-
-                log_out_fp.write(sl)
-                log_out_fp.flush()
-                harness.handle(sl.rstrip())
-
-            if harness.state:
-                if not harness.capture_coverage:
+            while ser.isOpen():
+                if halt_event.is_set():
+                    logger.debug('halted')
                     ser.close()
                     break
 
-        log_out_fp.close()
+                try:
+                    if not ser.in_waiting:
+                        # no incoming bytes are waiting to be read from
+                        # the serial input buffer, let other threads run
+                        time.sleep(0.001)
+                        continue
+                # maybe the serial port is still in reset
+                # check status may cause error
+                # wait for more time
+                except OSError:
+                    time.sleep(0.001)
+                    continue
+
+                serial_line = None
+                try:
+                    serial_line = ser.readline()
+                except TypeError:
+                    pass
+                # ignore SerialException which may happen during the serial device
+                # power off/on process.
+                except serial.SerialException:
+                    pass
+
+                # Just because ser_fileno has data doesn't mean an entire line
+                # is available yet.
+                if serial_line:
+                    sl = serial_line.decode('utf-8', 'ignore').lstrip()
+                    logger.debug("DEVICE: {0}".format(sl.rstrip()))
+
+                    log_out_fp.write(sl)
+                    log_out_fp.flush()
+                    harness.handle(sl.rstrip())
+
+                if harness.state and not harness.capture_coverage:
+                    ser.close()
+                    break
 
     def device_is_available(self, instance):
         device = instance.platform.name
@@ -439,7 +440,7 @@ class DeviceHandler(Handler):
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.communicate()
-                logger.error("{} timed out".format(script))
+                logger.error(f"{script} timed out")
 
     def handle(self):
         runner = None

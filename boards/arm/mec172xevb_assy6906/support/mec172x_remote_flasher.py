@@ -127,11 +127,10 @@ def main():
 
         if args.remote_is_linux:
             remote_tmp = pathlib.PurePosixPath("/tmp")
-    else:
-        if args.remote_is_win:
-            remote_tmp = pathlib.PureWindowsPath(args.remote_tmp)
-        elif args.remote_is_linux:
-            remote_tmp = pathlib.PurePosixPath(args.remote_tmp)
+    elif args.remote_is_win:
+        remote_tmp = pathlib.PureWindowsPath(args.remote_tmp)
+    elif args.remote_is_linux:
+        remote_tmp = pathlib.PurePosixPath(args.remote_tmp)
 
     # Construct full path to SPI binary.
     spi_file_path = pathlib.Path(args.build_dir)

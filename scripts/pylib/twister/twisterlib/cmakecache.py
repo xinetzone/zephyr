@@ -60,7 +60,7 @@ class CMakeCacheEntry:
                 v = int(val)
                 return v != 0
             except ValueError as exc:
-                raise ValueError('invalid bool {}'.format(val)) from exc
+                raise ValueError(f'invalid bool {val}') from exc
 
     @classmethod
     def from_line(cls, line, line_no):
@@ -82,7 +82,7 @@ class CMakeCacheEntry:
             try:
                 value = cls._to_bool(value)
             except ValueError as exc:
-                args = exc.args + ('on line {}: {}'.format(line_no, line),)
+                args = exc.args + (f'on line {line_no}: {line}', )
                 raise ValueError(args) from exc
         elif type_ in ['STRING', 'INTERNAL']:
             # If the value is a CMake list (i.e. is a string which
@@ -116,33 +116,28 @@ class CMakeCache:
         entries = []
         with open(cache_file, 'r') as cache:
             for line_no, line in enumerate(cache):
-                entry = CMakeCacheEntry.from_line(line, line_no)
-                if entry:
+                if entry := CMakeCacheEntry.from_line(line, line_no):
                     entries.append(entry)
         self._entries = OrderedDict((e.name, e) for e in entries)
 
     def get(self, name, default=None):
         entry = self._entries.get(name)
-        if entry is not None:
-            return entry.value
-        else:
-            return default
+        return entry.value if entry is not None else default
 
     def get_list(self, name, default=None):
         if default is None:
             default = []
         entry = self._entries.get(name)
-        if entry is not None:
-            value = entry.value
-            if isinstance(value, list):
-                return value
-            elif isinstance(value, str):
-                return [value] if value else []
-            else:
-                msg = 'invalid value {} type {}'
-                raise RuntimeError(msg.format(value, type(value)))
-        else:
+        if entry is None:
             return default
+        value = entry.value
+        if isinstance(value, list):
+            return value
+        elif isinstance(value, str):
+            return [value] if value else []
+        else:
+            msg = 'invalid value {} type {}'
+            raise RuntimeError(msg.format(value, type(value)))
 
     def __contains__(self, name):
         return name in self._entries

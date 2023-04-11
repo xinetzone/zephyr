@@ -30,7 +30,7 @@ class CoverageTool:
         elif tool == 'gcovr':
             t =  Gcovr()
         else:
-            logger.error("Unsupported coverage tool specified: {}".format(tool))
+            logger.error(f"Unsupported coverage tool specified: {tool}")
             return None
 
         logger.debug(f"Select {tool} as the coverage tool...")
@@ -38,12 +38,12 @@ class CoverageTool:
 
     @staticmethod
     def retrieve_gcov_data(input_file):
-        logger.debug("Working on %s" % input_file)
+        logger.debug(f"Working on {input_file}")
         extracted_coverage_info = {}
         capture_data = False
         capture_complete = False
         with open(input_file, 'r') as fp:
-            for line in fp.readlines():
+            for line in fp:
                 if re.search("GCOV_COVERAGE_DUMP_START", line):
                     capture_data = True
                     continue
@@ -53,18 +53,16 @@ class CoverageTool:
                 # Loop until the coverage data is found.
                 if not capture_data:
                     continue
-                if line.startswith("*"):
-                    sp = line.split("<")
-                    if len(sp) > 1:
-                        # Remove the leading delimiter "*"
-                        file_name = sp[0][1:]
-                        # Remove the trailing new line char
-                        hex_dump = sp[1][:-1]
-                    else:
-                        continue
-                else:
+                if not line.startswith("*"):
                     continue
-                extracted_coverage_info.update({file_name: hex_dump})
+                sp = line.split("<")
+                if len(sp) <= 1:
+                    continue
+                # Remove the leading delimiter "*"
+                file_name = sp[0][1:]
+                # Remove the trailing new line char
+                hex_dump = sp[1][:-1]
+                extracted_coverage_info[file_name] = hex_dump
         if not capture_data:
             capture_complete = True
         return {'complete': capture_complete, 'data': extracted_coverage_info}
@@ -76,7 +74,7 @@ class CoverageTool:
             # if kobject_hash is given for coverage gcovr fails
             # hence skipping it problem only in gcovr v4.1
             if "kobject_hash" in filename:
-                filename = (filename[:-4]) + "gcno"
+                filename = f"{filename[:-4]}gcno"
                 try:
                     os.remove(filename)
                 except Exception:
@@ -87,26 +85,26 @@ class CoverageTool:
                 fp.write(bytes.fromhex(hexdump_val))
 
     def generate(self, outdir):
-        for filename in glob.glob("%s/**/handler.log" % outdir, recursive=True):
+        for filename in glob.glob(f"{outdir}/**/handler.log", recursive=True):
             gcov_data = self.__class__.retrieve_gcov_data(filename)
             capture_complete = gcov_data['complete']
-            extracted_coverage_info = gcov_data['data']
             if capture_complete:
+                extracted_coverage_info = gcov_data['data']
                 self.__class__.create_gcda_files(extracted_coverage_info)
-                logger.debug("Gcov data captured: {}".format(filename))
+                logger.debug(f"Gcov data captured: {filename}")
             else:
-                logger.error("Gcov data capture incomplete: {}".format(filename))
+                logger.error(f"Gcov data capture incomplete: {filename}")
 
         with open(os.path.join(outdir, "coverage.log"), "a") as coveragelog:
             ret = self._generate(outdir, coveragelog)
             if ret == 0:
                 report_log = {
-                    "html": "HTML report generated: {}".format(os.path.join(outdir, "coverage", "index.html")),
-                    "xml": "XML report generated: {}".format(os.path.join(outdir, "coverage", "coverage.xml")),
-                    "csv": "CSV report generated: {}".format(os.path.join(outdir, "coverage", "coverage.csv")),
-                    "txt": "TXT report generated: {}".format(os.path.join(outdir, "coverage", "coverage.txt")),
-                    "coveralls": "Coveralls report generated: {}".format(os.path.join(outdir, "coverage", "coverage.coveralls.json")),
-                    "sonarqube": "Sonarqube report generated: {}".format(os.path.join(outdir, "coverage", "coverage.sonarqube.xml"))
+                    "html": f'HTML report generated: {os.path.join(outdir, "coverage", "index.html")}',
+                    "xml": f'XML report generated: {os.path.join(outdir, "coverage", "coverage.xml")}',
+                    "csv": f'CSV report generated: {os.path.join(outdir, "coverage", "coverage.csv")}',
+                    "txt": f'TXT report generated: {os.path.join(outdir, "coverage", "coverage.txt")}',
+                    "coveralls": f'Coveralls report generated: {os.path.join(outdir, "coverage", "coverage.coveralls.json")}',
+                    "sonarqube": f'Sonarqube report generated: {os.path.join(outdir, "coverage", "coverage.sonarqube.xml")}',
                 }
                 for r in self.output_formats.split(','):
                     logger.info(report_log[r])
@@ -119,10 +117,10 @@ class Lcov(CoverageTool):
         self.ignores = []
 
     def add_ignore_file(self, pattern):
-        self.ignores.append('*' + pattern + '*')
+        self.ignores.append(f'*{pattern}*')
 
     def add_ignore_directory(self, pattern):
-        self.ignores.append('*/' + pattern + '/*')
+        self.ignores.append(f'*/{pattern}/*')
 
     def _generate(self, outdir, coveragelog):
         coveragefile = os.path.join(outdir, "coverage.info")
@@ -175,10 +173,10 @@ class Gcovr(CoverageTool):
         self.ignores = []
 
     def add_ignore_file(self, pattern):
-        self.ignores.append('.*' + pattern + '.*')
+        self.ignores.append(f'.*{pattern}.*')
 
     def add_ignore_directory(self, pattern):
-        self.ignores.append(".*/" + pattern + '/.*')
+        self.ignores.append(f".*/{pattern}/.*")
 
     @staticmethod
     def _interleave_list(prefix, list):

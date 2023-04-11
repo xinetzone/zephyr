@@ -165,14 +165,13 @@ class GdbStub_Xtensa(GdbStub):
         tu = struct.unpack(self.gdb_reg_def.ARCH_DATA_BLK_STRUCT_REGS,
                 arch_data_blk_regs)
 
-        self.registers = dict()
+        self.registers = {}
 
         self.map_registers(tu)
 
 
     def map_registers(self, tu):
-        i = 0
-        for r in self.gdb_reg_def.RegNum:
+        for i, r in enumerate(self.gdb_reg_def.RegNum):
             reg_num = r.value
             # Dummy WINDOWBASE and WINDOWSTART to enable GDB
             # without dumping them and all AR registers;
@@ -185,7 +184,6 @@ class GdbStub_Xtensa(GdbStub):
                 if r == self.gdb_reg_def.RegNum.EXCCAUSE:
                     self.exception_code = tu[i]
                 self.registers[reg_num] = tu[i]
-            i += 1
 
 
     def compute_signal(self):
@@ -208,8 +206,7 @@ class GdbStub_Xtensa(GdbStub):
         idx = 0
         pkt = b''
 
-        GDB_G_PKT_MAX_REG = \
-            max([reg_num.value for reg_num in self.gdb_reg_def.RegNum])
+        GDB_G_PKT_MAX_REG = max(reg_num.value for reg_num in self.gdb_reg_def.RegNum)
 
         # We try to send as many of the registers listed
         # as possible, but we are constrained by the

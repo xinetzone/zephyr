@@ -43,12 +43,8 @@ def main():
     client.ping()
     client.echo('Hello, world!')
 
-    # necessary to mitigate unused variable warning with for i in range(5)
-    i = 0
-    while i < 5:
+    for _ in range(5):
         client.counter()
-        i = i + 1
-
     transport.close()
 
 

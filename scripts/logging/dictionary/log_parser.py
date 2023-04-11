@@ -57,7 +57,7 @@ def read_log_file(args):
             hexdata = ''
 
             with open(args.logfile, "r", encoding="iso-8859-1") as hexfile:
-                for line in hexfile.readlines():
+                for line in hexfile:
                     hexdata += line.strip()
 
             if LOG_HEX_SEP not in hexdata:
@@ -69,7 +69,7 @@ def read_log_file(args):
 
             if len(hexdata) % 2 != 0:
                 # Make sure there are even number of characters
-                idx = int(len(hexdata) / 2) * 2
+                idx = len(hexdata) // 2 * 2
                 hexdata = hexdata[:idx]
 
             idx = 0
@@ -89,14 +89,12 @@ def read_log_file(args):
 
             logdata = binascii.unhexlify(hexdata[:idx])
     else:
-        logfile = open(args.logfile, "rb")
-        if not logfile:
-            logger.error("ERROR: Cannot open binary log data file: %s, exiting...", args.logfile)
-            sys.exit(1)
+        with open(args.logfile, "rb") as logfile:
+            if not logfile:
+                logger.error("ERROR: Cannot open binary log data file: %s, exiting...", args.logfile)
+                sys.exit(1)
 
-        logdata = logfile.read()
-
-        logfile.close()
+            logdata = logfile.read()
 
     return logdata
 

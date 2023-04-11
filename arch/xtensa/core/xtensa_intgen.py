@@ -47,13 +47,13 @@ def emit_int_handler(ints):
             cprint("goto handle_irq;")
             cprint("}")
     else:
-        half = int(len(ints)/2)
+        half = len(ints) // 2
 
         m = 0
-        for i in ints[0:half]:
+        for i in ints[:half]:
             m |= 1 << i
         cprint("if (mask & " + ("0x%x" % (m)) + ") {")
-        emit_int_handler(ints[0:half])
+        emit_int_handler(ints[:half])
         cprint("} else {")
         emit_int_handler(ints[half:])
         cprint("}")
@@ -67,8 +67,8 @@ def emit_int_handler(ints):
 # parse via whitespace.
 blob = ""
 for l in fileinput.input():
-    l = l if l.find("#") < 0 else l[0:l.find("#")]
-    blob += l.rstrip() + " "
+    l = l if l.find("#") < 0 else l[:l.find("#")]
+    blob += f"{l.rstrip()} "
 
 for match in re.finditer(r'__xtensa_int_level_magic__\s+(\d+)\s+(\d+)', blob):
     irq = int(match.group(1))
@@ -99,8 +99,8 @@ cprint("#include <zephyr/sw_isr_table.h>")
 cprint("")
 for l in ints_by_lvl:
     for i in ints_by_lvl[l]:
-        v = "XCHAL_INT" + str(i) + "_LEVEL"
-        cprint("#if !defined(" + v + ") || " + str(v) + " != " + str(l))
+        v = f"XCHAL_INT{str(i)}_LEVEL"
+        cprint(f"#if !defined({v}) || {str(v)} != {str(l)}")
         cprint("#error core-isa.h interrupt level does not match dispatcher!")
         cprint("#endif")
 cprint("")
@@ -113,13 +113,15 @@ for lvl in ints_by_lvl:
     if lvl > max:
         max = lvl
 
-for lvl in range(0, max+1):
-    if not lvl in ints_by_lvl:
+for lvl in range(max+1):
+    if lvl not in ints_by_lvl:
         ints_by_lvl[lvl] = []
 
 # Emit the handlers
 for lvl in ints_by_lvl:
-    cprint("static inline int _xtensa_handle_one_int" + str(lvl) + "(unsigned int mask)")
+    cprint(
+        f"static inline int _xtensa_handle_one_int{str(lvl)}(unsigned int mask)"
+    )
     cprint("{")
 
     if not ints_by_lvl[lvl]:

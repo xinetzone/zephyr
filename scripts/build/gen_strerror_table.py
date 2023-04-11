@@ -31,10 +31,10 @@ def gen_strerror_table(input, output):
         symbols = []
         msgs = {}
 
-        for line in inf.readlines():
-            # Select items of the form below (note: ERRNO is numeric)
-            # #define SYMBOL ERRNO /**< MSG */
-            pat = r'^#define[\s]+(E[A-Z_]*)[\s]+([1-9][0-9]*)[\s]+/\*\*<[\s]+(.*)[\s]+\*/[\s]*$'
+        # Select items of the form below (note: ERRNO is numeric)
+        # #define SYMBOL ERRNO /**< MSG */
+        pat = r'^#define[\s]+(E[A-Z_]*)[\s]+([1-9][0-9]*)[\s]+/\*\*<[\s]+(.*)[\s]+\*/[\s]*$'
+        for line in inf:
             match = re.match(pat, line)
 
             if not match:
@@ -47,7 +47,7 @@ def gen_strerror_table(input, output):
             symbols.append(symbol)
             msgs[symbol] = msg
 
-            highest_errno = max(int(errno), highest_errno)
+            highest_errno = max(errno, highest_errno)
 
         try:
             os.makedirs(os.path.dirname(output))
@@ -93,9 +93,7 @@ def parse_args():
         required=True,
         help='output file (e.g. build/zephyr/misc/generated/libc/minimal/strerror_table.h)')
 
-    args = parser.parse_args()
-
-    return args
+    return parser.parse_args()
 
 
 def main():

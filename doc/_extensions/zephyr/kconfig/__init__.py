@@ -73,11 +73,10 @@ def kconfig_load(app: Sphinx) -> Tuple[kconfiglib.Kconfig, Dict[str, str]]:
     with TemporaryDirectory() as td:
         modules = zephyr_module.parse_modules(ZEPHYR_BASE)
 
-        # generate Kconfig.modules file
-        kconfig = ""
-        for module in modules:
-            kconfig += zephyr_module.process_kconfig(module.project, module.meta)
-
+        kconfig = "".join(
+            zephyr_module.process_kconfig(module.project, module.meta)
+            for module in modules
+        )
         with open(Path(td) / "Kconfig.modules", "w") as f:
             f.write(kconfig)
 
@@ -99,7 +98,7 @@ def kconfig_load(app: Sphinx) -> Tuple[kconfiglib.Kconfig, Dict[str, str]]:
         os.environ["BOARD_DIR"] = "boards/*/*"
 
         # insert external Kconfigs to the environment
-        module_paths = dict()
+        module_paths = {}
         for module in modules:
             name = module.meta["name"]
             name_var = module.meta["name-sanitized"].upper()
@@ -190,8 +189,7 @@ class KconfigDomain(Domain):
     initial_data: Dict[str, Any] = {"options": []}
 
     def get_objects(self) -> Iterable[Tuple[str, str, str, str, str, int]]:
-        for obj in self.data["options"]:
-            yield obj
+        yield from self.data["options"]
 
     def merge_domaindata(self, docnames: List[str], otherdata: Dict) -> None:
         self.data["options"] += otherdata["options"]
@@ -206,13 +204,11 @@ class KconfigDomain(Domain):
         node: pending_xref,
         contnode: nodes.Element,
     ) -> Optional[nodes.Element]:
-        match = [
+        if match := [
             (docname, anchor)
             for name, _, _, docname, anchor, _ in self.get_objects()
             if name == target
-        ]
-
-        if match:
+        ]:
             todocname, anchor = match[0]
 
             return make_refnode(
@@ -234,10 +230,11 @@ def sc_fmt(sc):
         if sc.nodes:
             return f'<a href="#CONFIG_{sc.name}">CONFIG_{sc.name}</a>'
     elif isinstance(sc, kconfiglib.Choice):
-        if not sc.name:
-            return "&ltchoice&gt"
-        return f'&ltchoice <a href="#CONFIG_{sc.name}">CONFIG_{sc.name}</a>&gt'
-
+        return (
+            f'&ltchoice <a href="#CONFIG_{sc.name}">CONFIG_{sc.name}</a>&gt'
+            if sc.name
+            else "&ltchoice&gt"
+        )
     return kconfiglib.standard_sc_expr_str(sc)
 
 
@@ -249,18 +246,15 @@ def kconfig_build_resources(app: Sphinx) -> None:
 
     with progress_message("Building Kconfig database..."):
         kconfig, module_paths = kconfig_load(app)
-        db = list()
+        db = []
 
-        for sc in sorted(
-            chain(kconfig.unique_defined_syms, kconfig.unique_choices),
-            key=lambda sc: sc.name if sc.name else "",
-        ):
+        for sc in sorted(chain(kconfig.unique_defined_syms, kconfig.unique_choices), key=lambda sc: sc.name or ""):
             # skip nameless symbols
             if not sc.name:
                 continue
 
             # store alternative defaults (from defconfig files)
-            alt_defaults = list()
+            alt_defaults = []
             for node in sc.nodes:
                 if "defconfig" not in node.filename:
                     continue
@@ -276,13 +270,13 @@ def kconfig_build_resources(app: Sphinx) -> None:
             # (e.g. select/imply A if B) turns into A && B. So we first split
             # by OR to include all entries, and we split each one by AND to just
             # take the first entry.
-            selected_by = list()
+            selected_by = []
             if isinstance(sc, kconfiglib.Symbol) and sc.rev_dep != sc.kconfig.n:
                 for select in kconfiglib.split_expr(sc.rev_dep, kconfiglib.OR):
                     sym = kconfiglib.split_expr(select, kconfiglib.AND)[0]
                     selected_by.append(f"CONFIG_{sym.name}")
 
-            implied_by = list()
+            implied_by = []
             if isinstance(sc, kconfiglib.Symbol) and sc.weak_rev_dep != sc.kconfig.n:
                 for select in kconfiglib.split_expr(sc.weak_rev_dep, kconfiglib.OR):
                     sym = kconfiglib.split_expr(select, kconfiglib.AND)[0]
@@ -291,7 +285,7 @@ def kconfig_build_resources(app: Sphinx) -> None:
             # only process nodes with prompt or help
             nodes = [node for node in sc.nodes if node.prompt or node.help]
 
-            inserted_paths = list()
+            inserted_paths = []
             for node in nodes:
                 # avoid duplicate symbols by forcing unique paths. this can
                 # happen due to dependencies on 0, a trick used by some modules
@@ -304,28 +298,28 @@ def kconfig_build_resources(app: Sphinx) -> None:
                 if node.dep is not sc.kconfig.y:
                     dependencies = kconfiglib.expr_str(node.dep, sc_fmt)
 
-                defaults = list()
+                defaults = []
                 for value, cond in node.orig_defaults:
                     fmt = kconfiglib.expr_str(value, sc_fmt)
                     if cond is not sc.kconfig.y:
                         fmt += f" if {kconfiglib.expr_str(cond, sc_fmt)}"
                     defaults.append(fmt)
 
-                selects = list()
+                selects = []
                 for value, cond in node.orig_selects:
                     fmt = kconfiglib.expr_str(value, sc_fmt)
                     if cond is not sc.kconfig.y:
                         fmt += f" if {kconfiglib.expr_str(cond, sc_fmt)}"
                     selects.append(fmt)
 
-                implies = list()
+                implies = []
                 for value, cond in node.orig_implies:
                     fmt = kconfiglib.expr_str(value, sc_fmt)
                     if cond is not sc.kconfig.y:
                         fmt += f" if {kconfiglib.expr_str(cond, sc_fmt)}"
                     implies.append(fmt)
 
-                ranges = list()
+                ranges = []
                 for min, max, cond in node.orig_ranges:
                     fmt = (
                         f"[{kconfiglib.expr_str(min, sc_fmt)}, "
@@ -335,11 +329,9 @@ def kconfig_build_resources(app: Sphinx) -> None:
                         fmt += f" if {kconfiglib.expr_str(cond, sc_fmt)}"
                     ranges.append(fmt)
 
-                choices = list()
+                choices = []
                 if isinstance(sc, kconfiglib.Choice):
-                    for sym in sc.syms:
-                        choices.append(kconfiglib.expr_str(sym, sc_fmt))
-
+                    choices.extend(kconfiglib.expr_str(sym, sc_fmt) for sym in sc.syms)
                 menupath = ""
                 iternode = node
                 while iternode.parent is not iternode.kconfig.top_node:
@@ -348,9 +340,9 @@ def kconfig_build_resources(app: Sphinx) -> None:
                         title = iternode.prompt[0]
                     else:
                         title = kconfiglib.standard_sc_expr_str(iternode.item)
-                    menupath = f" > {title}" + menupath
+                    menupath = f" > {title}{menupath}"
 
-                menupath = "(Top)" + menupath
+                menupath = f"(Top){menupath}"
 
                 filename = node.filename
                 for name, path in module_paths.items():
