@@ -27,10 +27,11 @@ def binding_paths(bindings_dirs):
 
     for bindings_dir in bindings_dirs:
         for root, _, filenames in os.walk(bindings_dir):
-            for filename in filenames:
-                if filename.endswith(".yaml") or filename.endswith(".yml"):
-                    binding_paths.append(os.path.join(root, filename))
-
+            binding_paths.extend(
+                os.path.join(root, filename)
+                for filename in filenames
+                if filename.endswith(".yaml") or filename.endswith(".yml")
+            )
     return binding_paths
 
 def parse_args():
@@ -89,9 +90,9 @@ def main():
     compat_list = sorted(set(compat_list))
 
     with open(args.kconfig_out, "w", encoding="utf-8") as kconfig_file:
-        printfile(f'# Generated devicetree Kconfig')
-        printfile(f'#')
-        printfile(f'# SPDX-License-Identifier: Apache-2.0')
+        printfile('# Generated devicetree Kconfig')
+        printfile('#')
+        printfile('# SPDX-License-Identifier: Apache-2.0')
 
         for c in compat_list:
             compat2kconfig(c)

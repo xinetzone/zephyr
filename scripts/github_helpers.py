@@ -58,8 +58,7 @@ def get_github_credentials(ask: bool = True) -> Dict[str, str]:
         if auth is not None:
             return {'login_or_token': auth[0], 'password': auth[2]}
 
-    token = os.environ.get('GITHUB_TOKEN')
-    if token:
+    if token := os.environ.get('GITHUB_TOKEN'):
         return {'login_or_token': token}
 
     if ask:

@@ -978,9 +978,8 @@ class Kconfig(object):
 
         self.config_prefix = os.getenv("CONFIG_", "CONFIG_")
         # Regular expressions for parsing .config files
-        self._set_match = _re_match(self.config_prefix + r"([^=]+)=(.*)")
-        self._unset_match = _re_match(r"# {}([^ ]+) is not set".format(
-            self.config_prefix))
+        self._set_match = _re_match(f"{self.config_prefix}([^=]+)=(.*)")
+        self._unset_match = _re_match(f"# {self.config_prefix}([^ ]+) is not set")
 
         self.config_header = os.getenv("KCONFIG_CONFIG_HEADER", "")
         self.header_header = os.getenv("KCONFIG_AUTOHEADER_HEADER", "")
@@ -1028,10 +1027,9 @@ class Kconfig(object):
 
         # Add any user-defined preprocessor functions
         try:
-            self._functions.update(
-                importlib.import_module(
-                    os.getenv("KCONFIG_FUNCTIONS", "kconfigfunctions")
-                ).functions)
+            self._functions |= importlib.import_module(
+                os.getenv("KCONFIG_FUNCTIONS", "kconfigfunctions")
+            ).functions
         except ImportError:
             pass
 
@@ -1107,7 +1105,7 @@ class Kconfig(object):
         # KCONFIG_STRICT is an older alias for KCONFIG_WARN_UNDEF, supported
         # for backwards compatibility
         if os.getenv("KCONFIG_WARN_UNDEF") == "y" or \
-           os.getenv("KCONFIG_STRICT") == "y":
+               os.getenv("KCONFIG_STRICT") == "y":
 
             self._check_undef_syms()
 
@@ -1216,18 +1214,16 @@ class Kconfig(object):
         if filename is None:
             filename = standard_config_filename()
             if not exists(filename) and \
-               not exists(join(self.srctree, filename)):
+                   not exists(join(self.srctree, filename)):
                 defconfig = self.defconfig_filename
                 if defconfig is None:
-                    return "Using default symbol values (no '{}')" \
-                           .format(filename)
+                    return f"Using default symbol values (no '{filename}')"
 
-                msg = " default configuration '{}' (no '{}')" \
-                      .format(defconfig, filename)
+                msg = f" default configuration '{defconfig}' (no '{filename}')"
                 filename = defconfig
 
         if not msg:
-            msg = " configuration '{}'".format(filename)
+            msg = f" configuration '{filename}'"
 
         # Disable the warning about assigning to symbols without prompts. This
         # is normal and expected within a .config file.

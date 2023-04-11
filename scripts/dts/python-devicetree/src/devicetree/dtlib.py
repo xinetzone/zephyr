@@ -102,7 +102,7 @@ class Node:
 
         if name.count("@") > 1:
             dt._parse_error("multiple '@' in node name")
-        if not name == "/":
+        if name != "/":
             for char in name:
                 if char not in _nodename_chars:
                     dt._parse_error(f"{self.path}: bad character '{char}' "
@@ -174,7 +174,7 @@ class Node:
         Returns a DTS representation of the node. Called automatically if the
         node is print()ed.
         """
-        s = "".join(label + ": " for label in self.labels)
+        s = "".join(f"{label}: " for label in self.labels)
 
         s += f"{self.name} {{\n"
 
@@ -554,18 +554,14 @@ class Property:
         return ret  # The separate 'return' appeases the type checker.
 
     def __str__(self):
-        s = "".join(label + ": " for label in self.labels) + self.name
+        s = "".join(f"{label}: " for label in self.labels) + self.name
         if not self.value:
-            return s + ";"
+            return f"{s};"
 
         s += " ="
 
         for i, (pos, marker_type, ref) in enumerate(self._markers):
-            if i < len(self._markers) - 1:
-                next_marker = self._markers[i + 1]
-            else:
-                next_marker = None
-
+            next_marker = self._markers[i + 1] if i < len(self._markers) - 1 else None
             # End of current marker
             end = next_marker[0] if next_marker else len(self.value)
 
@@ -575,7 +571,7 @@ class Property:
                 if end != len(self.value):
                     s += ","
             elif marker_type is _MarkerType.PATH:
-                s += " &" + ref
+                s += f" &{ref}"
                 if end != len(self.value):
                     s += ","
             else:
@@ -584,10 +580,10 @@ class Property:
                 if marker_type is _MarkerType.LABEL:
                     s += f" {ref}:"
                 elif marker_type is _MarkerType.PHANDLE:
-                    s += " &" + ref
+                    s += f" &{ref}"
                     pos += 4
-                    # Subtle: There might be more data between the phandle and
-                    # the next marker, so we can't 'continue' here
+                                # Subtle: There might be more data between the phandle and
+                                # the next marker, so we can't 'continue' here
                 else:  # marker_type is _MarkerType.UINT*
                     elm_size = _TYPE_TO_N_BYTES[marker_type]
                     s += _N_BYTES_TO_START_STR[elm_size]
@@ -595,22 +591,18 @@ class Property:
                 while pos != end:
                     num = int.from_bytes(self.value[pos:pos + elm_size],
                                          "big")
-                    if elm_size == 1:
-                        s += f" {num:02X}"
-                    else:
-                        s += f" {hex(num)}"
-
+                    s += f" {num:02X}" if elm_size == 1 else f" {hex(num)}"
                     pos += elm_size
 
                 if pos != 0 and \
-                   (not next_marker or
+                       (not next_marker or
                     next_marker[1] not in (_MarkerType.PHANDLE, _MarkerType.LABEL)):
 
                     s += _N_BYTES_TO_END_STR[elm_size]
                     if pos != len(self.value):
                         s += ","
 
-        return s + ";"
+        return f"{s};"
 
 
     def __repr__(self):
@@ -1752,8 +1744,7 @@ class DT:
         # sanity checking.
 
         for node in self.node_iter():
-            phandle = node.props.get("phandle")
-            if phandle:
+            if phandle := node.props.get("phandle"):
                 if len(phandle.value) != 4:
                     _err(f"{node.path}: bad phandle length "
                          f"({len(phandle.value)}), expected 4 bytes")
@@ -1857,8 +1848,7 @@ class DT:
 
         alias_re = re.compile("[0-9a-z-]+$")
 
-        aliases = self.root.nodes.get("aliases")
-        if aliases:
+        if aliases := self.root.nodes.get("aliases"):
             for prop in aliases.props.values():
                 if not alias_re.match(prop.name):
                     _err(f"/aliases: alias property name '{prop.name}' "
@@ -2044,7 +2034,7 @@ def _check_is_bytes(data):
 
 def _check_length_positive(length):
     if length < 1:
-        _err("'length' must be greater than zero, was " + str(length))
+        _err(f"'length' must be greater than zero, was {str(length)}")
 
 def _append_no_dup(lst, elm):
     # Appends 'elm' to 'lst', but only if it isn't already in 'lst'. Lets us

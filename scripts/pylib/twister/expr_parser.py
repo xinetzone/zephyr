@@ -95,7 +95,7 @@ def t_SYMBOL(t):
 t_ignore = " \t\n"
 
 def t_error(t):
-    raise SyntaxError("Unexpected token '%s'" % t.value)
+    raise SyntaxError(f"Unexpected token '{t.value}'")
 
 lex.lex()
 
@@ -176,7 +176,7 @@ def p_number(p):
 
 def p_error(p):
     if p:
-        raise SyntaxError("Unexpected token '%s'" % p.value)
+        raise SyntaxError(f"Unexpected token '{p.value}'")
     else:
         raise SyntaxError("Unexpected end of expression")
 
@@ -186,17 +186,12 @@ else:
     parser = yacc.yacc(debug=0, outputdir=os.environ["PARSETAB_DIR"])
 
 def ast_sym(ast, env):
-    if ast in env:
-        return str(env[ast])
-    return ""
+    return str(env[ast]) if ast in env else ""
 
 def ast_sym_int(ast, env):
     if ast in env:
         v = env[ast]
-        if v.startswith("0x") or v.startswith("0X"):
-            return int(v, 16)
-        else:
-            return int(v, 10)
+        return int(v, 16) if v.startswith("0x") or v.startswith("0X") else int(v, 10)
     return 0
 
 def ast_expr(ast, env, edt):
@@ -226,16 +221,16 @@ def ast_expr(ast, env, edt):
         return bool(re.match(ast[2], ast_sym(ast[1], env)))
     elif ast[0] == "dt_compat_enabled":
         compat = ast[1][0]
-        for node in edt.nodes:
-            if compat in node.compats and node.status == "okay":
-                return True
-        return False
+        return any(
+            compat in node.compats and node.status == "okay"
+            for node in edt.nodes
+        )
     elif ast[0] == "dt_alias_exists":
         alias = ast[1][0]
-        for node in edt.nodes:
-            if alias in node.aliases and node.status == "okay":
-                return True
-        return False
+        return any(
+            alias in node.aliases and node.status == "okay"
+            for node in edt.nodes
+        )
     elif ast[0] == "dt_enabled_alias_with_parent_compat":
         # Checks if the DT has an enabled alias node whose parent has
         # a given compatible. For matching things like gpio-leds child
@@ -276,15 +271,11 @@ def ast_expr(ast, env, edt):
     elif ast[0] == "dt_chosen_enabled":
         chosen = ast[1][0]
         node = edt.chosen_node(chosen)
-        if node and node.status == "okay":
-            return True
-        return False
+        return bool(node and node.status == "okay")
     elif ast[0] == "dt_nodelabel_enabled":
         label = ast[1][0]
         node = edt.label2node.get(label)
-        if node and node.status == "okay":
-            return True
-        return False
+        return bool(node and node.status == "okay")
 
 def ast_handle_dt_enabled_alias_with_parent_compat(edt, alias, compat):
     # Helper shared with the now deprecated
@@ -328,7 +319,7 @@ if __name__ == "__main__":
     }
 
 
-    for line in open(sys.argv[1]).readlines():
+    for line in open(sys.argv[1]):
         lex.input(line)
         for tok in iter(lex.token, None):
             print(tok.type, tok.value)

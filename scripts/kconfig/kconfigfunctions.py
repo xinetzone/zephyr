@@ -31,7 +31,7 @@ if not doc_mode:
 
 
 def _warn(kconf, msg):
-    print("{}:{}: WARNING: {}".format(kconf.filename, kconf.linenr, msg))
+    print(f"{kconf.filename}:{kconf.linenr}: WARNING: {msg}")
 
 
 def _dt_units_to_scale(unit):
@@ -61,14 +61,10 @@ def dt_chosen_label(kconf, _, chosen):
     if doc_mode or edt is None:
         return ""
 
-    node = edt.chosen_node(chosen)
-    if not node:
+    if node := edt.chosen_node(chosen):
+        return node.name if "label" not in node.props else node.props["label"].val
+    else:
         return ""
-
-    if "label" not in node.props:
-        return node.name
-
-    return node.props["label"].val
 
 
 def dt_chosen_enabled(kconf, _, chosen):
@@ -108,10 +104,7 @@ def dt_chosen_has_compat(kconf, _, chosen, compat):
     if node is None:
         return "n"
 
-    if compat in node.compats:
-        return "y"
-
-    return "n"
+    return "y" if compat in node.compats else "n"
 
 def dt_node_enabled(kconf, name, node):
     """
@@ -396,10 +389,7 @@ def _dt_node_bool_prop_generic(node_search_function, search_arg, prop):
     if node.props[prop].type != "boolean":
         return "n"
 
-    if node.props[prop].val:
-        return "y"
-
-    return "n"
+    return "y" if node.props[prop].val else "n"
 
 def dt_node_bool_prop(kconf, _, path, prop):
     """
@@ -450,10 +440,7 @@ def _dt_node_has_prop_generic(node_search_function, search_arg, prop):
     if node is None:
         return "n"
 
-    if prop in node.props:
-        return "y"
-
-    return "n"
+    return "y" if prop in node.props else "n"
 
 def dt_node_has_prop(kconf, _, path, prop):
     """
@@ -559,10 +546,7 @@ def dt_node_str_prop_equals(kconf, _, path, prop, val):
     if node.props[prop].type != "string":
         return "n"
 
-    if node.props[prop].val == val:
-        return "y"
-
-    return "n"
+    return "y" if node.props[prop].val == val else "n"
 
 
 def dt_has_compat(kconf, _, compat):
@@ -614,10 +598,7 @@ def dt_nodelabel_has_compat(kconf, _, label, compat):
 
     node = edt.label2node.get(label)
 
-    if node and compat in node.compats:
-        return "y"
-
-    return "n"
+    return "y" if node and compat in node.compats else "n"
 
 def dt_node_has_compat(kconf, _, path, compat):
     """
@@ -634,10 +615,7 @@ def dt_node_has_compat(kconf, _, path, compat):
     except edtlib.EDTError:
         return "n"
 
-    if node and compat in node.compats:
-        return "y"
-
-    return "n"
+    return "y" if node and compat in node.compats else "n"
 
 def dt_nodelabel_enabled_with_compat(kconf, _, label, compat):
     """
@@ -715,11 +693,14 @@ def dt_gpio_hogs_enabled(kconf, _):
     if doc_mode or edt is None:
         return "n"
 
-    for node in edt.nodes:
-        if node.gpio_hogs and node.status == "okay":
-            return "y"
-
-    return "n"
+    return next(
+        (
+            "y"
+            for node in edt.nodes
+            if node.gpio_hogs and node.status == "okay"
+        ),
+        "n",
+    )
 
 def shields_list_contains(kconf, _, shield):
     """

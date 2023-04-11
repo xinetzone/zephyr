@@ -65,11 +65,8 @@ class LogDatabase():
     BIG_ENDIAN = False
 
     def __init__(self):
-        new_db = {}
+        new_db = {'version': self.ZEPHYR_DICT_LOG_VER, 'target': {}, 'log_subsys': {}}
 
-        new_db['version'] = self.ZEPHYR_DICT_LOG_VER
-        new_db['target'] = {}
-        new_db['log_subsys'] = {}
         new_db['log_subsys']['log_instances'] = {}
         new_db['build_id'] = None
         new_db['arch'] = None
@@ -125,10 +122,7 @@ class LogDatabase():
         if self.database['target']['bits'] == 32:
             return False
 
-        if self.database['target']['bits'] == 64:
-            return True
-
-        return None
+        return True if self.database['target']['bits'] == 64 else None
 
 
     def get_tgt_endianness(self):
@@ -172,10 +166,7 @@ class LogDatabase():
 
     def has_string_mappings(self):
         """Return True if there are string mappings in database"""
-        if 'string_mappings' in self.database:
-            return True
-
-        return False
+        return 'string_mappings' in self.database
 
 
     def has_string_sections(self):
@@ -274,11 +265,10 @@ class LogDatabase():
         # So convert them back to integers, as this is needed for partial
         # matchings.
         if database.has_string_mappings():
-            new_str_map = {}
-
-            for addr, one_str in database.get_string_mappings().items():
-                new_str_map[int(addr)] = one_str
-
+            new_str_map = {
+                int(addr): one_str
+                for addr, one_str in database.get_string_mappings().items()
+            }
             database.set_string_mappings(new_str_map)
 
         return database

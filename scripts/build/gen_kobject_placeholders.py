@@ -40,17 +40,14 @@ def output_simple_header(one_sect):
 
     out_fn = os.path.join(args.outdir,
                           f"linker-kobject-prebuilt-{one_sect['name']}.h")
-    out_fp = open(out_fn, "w")
+    with open(out_fn, "w") as out_fp:
+        if one_sect['exists']:
+            align = one_sect['align']
+            size = one_sect['size']
+            prefix = one_sect['define_prefix']
 
-    if one_sect['exists']:
-        align = one_sect['align']
-        size = one_sect['size']
-        prefix = one_sect['define_prefix']
-
-        write_define(out_fp, prefix, 'ALIGN', align)
-        write_define(out_fp, prefix, 'SZ', size)
-
-    out_fp.close()
+            write_define(out_fp, prefix, 'ALIGN', align)
+            write_define(out_fp, prefix, 'SZ', size)
 
 
 def generate_linker_headers(obj):
@@ -98,8 +95,8 @@ def generate_linker_headers(obj):
             if "extra_bytes" in sections[name]:
                 sections[name]['size'] += int(sections[name]['extra_bytes'])
 
-    for one_sect in sections:
-        output_simple_header(sections[one_sect])
+    for value in sections.values():
+        output_simple_header(value)
 
 
 def parse_args():

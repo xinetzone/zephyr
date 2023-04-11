@@ -2334,9 +2334,7 @@ memreservelabel: /memreserve/ 0xdeadbeef 0x4000;
     assert root_copy.labels is not dt.root.labels
 
     # dt_copy.memreserves checks:
-    assert dt_copy.memreserves == [
-        (set(['memreservelabel']), 0xdeadbeef, 0x4000)
-    ]
+    assert dt_copy.memreserves == [({'memreservelabel'}, 0xdeadbeef, 0x4000)]
     assert dt_copy.memreserves is not dt.memreserves
 
     # Miscellaneous dt_copy node and property checks:
@@ -2364,7 +2362,7 @@ memreservelabel: /memreserve/ 0xdeadbeef 0x4000;
     assert node_copy.name == 'node@1234'
     assert node_copy.unit_addr == '1234'
     assert node_copy.path == '/node@1234'
-    assert set(node_copy.props.keys()) == set(['nodeprop', 'phandle'])
+    assert set(node_copy.props.keys()) == {'nodeprop', 'phandle'}
     assert node_copy.props is not dt.get_node('/node@1234').props
     assert node_copy.props['nodeprop'].name == 'nodeprop'
     assert node_copy.props['nodeprop'].labels == []
@@ -2391,10 +2389,13 @@ memreservelabel: /memreserve/ 0xdeadbeef 0x4000;
         copy = getattr(dt_copy, attr_name)
         assert original is not copy
         assert list(original.keys()) == list(copy.keys())
-        assert all([original_node.path == copy_node.path and
-                    original_node is not copy_node
-                    for original_node, copy_node in
-                    zip(original.values(), copy.values())])
+        assert all(
+            original_node.path == copy_node.path
+            and original_node is not copy_node
+            for original_node, copy_node in zip(
+                original.values(), copy.values()
+            )
+        )
 
     check_node_lookup_table('alias2node')
     check_node_lookup_table('label2node')

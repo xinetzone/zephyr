@@ -55,8 +55,9 @@ class DeviceOrdinals(_Symbol):
 
     def __init__(self, elf, sym):
         super().__init__(elf, sym)
-        format = "<" if self.elf.little_endian else ">"
-        format += "{:d}h".format(len(self.data) // 2)
+        format = ("<" if self.elf.little_endian else ">") + "{:d}h".format(
+            len(self.data) // 2
+        )
         self._ordinals = struct.unpack(format, self.data)
         self._ordinals_split = []
 
@@ -119,7 +120,13 @@ class ZephyrElf:
         self.elf = ELFFile(open(kernel, "rb"))
         self.edt = edt
         self.devices = []
-        self.ld_consts = self._symbols_find_value(set([device_start_symbol, *Device.required_ld_consts, *DevicePM.required_ld_consts]))
+        self.ld_consts = self._symbols_find_value(
+            {
+                device_start_symbol,
+                *Device.required_ld_consts,
+                *DevicePM.required_ld_consts,
+            }
+        )
         self._device_parse_and_link()
 
     @property
@@ -185,7 +192,7 @@ class ZephyrElf:
             n = self.edt.dep_ord2node[ord]
 
             deps = set(n.depends_on)
-            while len(deps) > 0:
+            while deps:
                 dn = deps.pop()
                 if dn.dep_ordinal in devices:
                     # this is used
@@ -196,7 +203,7 @@ class ZephyrElf:
                         deps.add(ddn)
 
             sups = set(n.required_by)
-            while len(sups) > 0:
+            while sups:
                 sn = sups.pop()
                 if sn.dep_ordinal in devices:
                     dev.devs_supports.add(devices[sn.dep_ordinal])

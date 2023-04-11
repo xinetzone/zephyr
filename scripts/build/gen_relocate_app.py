@@ -230,9 +230,9 @@ def find_sections(filename: str) -> 'dict[SectionKind, list[OutputSection]]':
     with open(obj_file_path, 'rb') as obj_file_desc:
         full_lib = ELFFile(obj_file_desc)
         if not full_lib:
-            sys.exit("Error parsing file: " + filename)
+            sys.exit(f"Error parsing file: {filename}")
 
-        sections = [x for x in full_lib.iter_sections()]
+        sections = list(full_lib.iter_sections())
         out = defaultdict(list)
 
         for section in sections:
@@ -274,11 +274,10 @@ def assign_to_correct_mem_region(
     if align_size:
         mpu_align[memory_region] = int(align_size)
 
-    output_sections = {}
-    for used_kind in use_section_kinds:
-        # Pass through section kinds that go into this memory region
-        output_sections[used_kind] = full_list_of_sections[used_kind]
-
+    output_sections = {
+        used_kind: full_list_of_sections[used_kind]
+        for used_kind in use_section_kinds
+    }
     return {MemoryRegion(memory_region): output_sections}
 
 
@@ -341,20 +340,16 @@ def string_create_helper(
             linker_string += tmp
         else:
             if not region_is_default_ram(memory_type) and kind is SectionKind.RODATA:
+                align_size = mpu_align[memory_type] if memory_type in mpu_align else 0
+                linker_string += LINKER_SECTION_SEQ_MPU.format(memory_type.lower(), kind.value, memory_type.upper(),
+                                                               kind, tmp, load_address_string, align_size)
+            elif region_is_default_ram(memory_type) and kind in (SectionKind.TEXT, SectionKind.LITERAL):
                 align_size = 0
-                if memory_type in mpu_align:
-                    align_size = mpu_align[memory_type]
-
                 linker_string += LINKER_SECTION_SEQ_MPU.format(memory_type.lower(), kind.value, memory_type.upper(),
                                                                kind, tmp, load_address_string, align_size)
             else:
-                if region_is_default_ram(memory_type) and kind in (SectionKind.TEXT, SectionKind.LITERAL):
-                    align_size = 0
-                    linker_string += LINKER_SECTION_SEQ_MPU.format(memory_type.lower(), kind.value, memory_type.upper(),
-                                                                   kind, tmp, load_address_string, align_size)
-                else:
-                    linker_string += LINKER_SECTION_SEQ.format(memory_type.lower(), kind.value, memory_type.upper(),
-                                                               kind, tmp, load_address_string)
+                linker_string += LINKER_SECTION_SEQ.format(memory_type.lower(), kind.value, memory_type.upper(),
+                                                           kind, tmp, load_address_string)
             if load_address_in_flash:
                 linker_string += SECTION_LOAD_MEMORY_SEQ.format(memory_type.lower(), kind.value, memory_type.upper(),
                                                                 kind)
@@ -367,10 +362,9 @@ def generate_linker_script(linker_file, sram_data_linker_file, sram_bss_linker_f
     gen_string_sram_data = ''
     gen_string_sram_bss = ''
 
-    for memory_type, full_list_of_sections in \
-            sorted(complete_list_of_sections.items()):
+    for memory_type, full_list_of_sections in sorted(complete_list_of_sections.items()):
 
-        is_copy = bool("|COPY" in memory_type)
+        is_copy = "|COPY" in memory_type
         memory_type = memory_type.split("|", 1)[0]
 
         if region_is_default_ram(memory_type) and is_copy:
@@ -479,10 +473,11 @@ def get_obj_filename(searchpath, filename):
 
     for dirpath, _, files in os.walk(searchpath):
         for filename1 in files:
-            if filename1 == obj_filename:
-                if filename.split("/")[-2] in dirpath.split("/")[-1]:
-                    fullname = os.path.join(dirpath, filename1)
-                    return fullname
+            if (
+                filename1 == obj_filename
+                and filename.split("/")[-2] in dirpath.split("/")[-1]
+            ):
+                return os.path.join(dirpath, filename1)
 
 
 # Extracts all possible components for the input strin:
@@ -505,8 +500,8 @@ def parse_input_string(line):
 # Also, return another dict with program headers for memory regions
 def create_dict_wrt_mem():
     # need to support wild card *
-    rel_dict = dict()
-    phdrs = dict()
+    rel_dict = {}
+    phdrs = {}
 
     if args.input_rel_dict == '':
         sys.exit("Disable CONFIG_CODE_DATA_RELOCATION if no file needs relocation")
@@ -527,13 +522,13 @@ def create_dict_wrt_mem():
         for file_glob in file_glob_list:
             glob_results = glob.glob(file_glob)
             if not glob_results:
-                warnings.warn("File: "+file_glob+" Not found")
+                warnings.warn(f"File: {file_glob} Not found")
                 continue
             elif len(glob_results) > 1:
                 warnings.warn("Regex in file lists is deprecated, please use file(GLOB) instead")
             file_name_list.extend(glob_results)
-        if len(file_name_list) == 0:
-            warnings.warn("No files in string: "+file_list+" found")
+        if not file_name_list:
+            warnings.warn(f"No files in string: {file_list} found")
             continue
         if mem_region == '':
             continue

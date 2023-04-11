@@ -93,16 +93,14 @@ def main():
     # all of the alias-related properties in one place.
     for node in edt.nodes:
         path = node.path
-        for alias in node.aliases:
-            cmake_props.append(f'"DT_ALIAS|{alias}" "{path}"')
-
+        cmake_props.extend(f'"DT_ALIAS|{alias}" "{path}"' for alias in node.aliases)
     compatible2paths = defaultdict(list)
     for node in edt.nodes:
         cmake_props.append(f'"DT_NODE|{node.path}" TRUE')
 
-        for label in node.labels:
-            cmake_props.append(f'"DT_NODELABEL|{label}" "{node.path}"')
-
+        cmake_props.extend(
+            f'"DT_NODELABEL|{label}" "{node.path}"' for label in node.labels
+        )
         for item in node.props:
             # We currently do not support phandles for edt -> cmake conversion.
             if "phandle" not in node.props[item].type:
@@ -140,12 +138,15 @@ def main():
                 else:
                     cmake_size = f'{cmake_size}{hex(reg.size)};'
 
-            cmake_props.append(f'"DT_REG|{node.path}|ADDR" "{cmake_addr}"')
-            cmake_props.append(f'"DT_REG|{node.path}|SIZE" "{cmake_size}"')
-
-    for comp in compatible2paths.keys():
+            cmake_props.extend(
+                (
+                    f'"DT_REG|{node.path}|ADDR" "{cmake_addr}"',
+                    f'"DT_REG|{node.path}|SIZE" "{cmake_size}"',
+                )
+            )
+    for comp, value in compatible2paths.items():
         cmake_path = ''
-        for path in compatible2paths[comp]:
+        for path in value:
             cmake_path = f'{cmake_path}{path};'
 
         # Remove the last ';'

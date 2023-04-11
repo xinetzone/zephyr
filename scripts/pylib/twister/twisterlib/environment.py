@@ -225,8 +225,10 @@ Artificially long but functional example:
 
     # Start of individual args place them in alpha-beta order
 
-    board_root_list = ["%s/boards" % ZEPHYR_BASE,
-                       "%s/scripts/pylib/twister/boards" % ZEPHYR_BASE]
+    board_root_list = [
+        f"{ZEPHYR_BASE}/boards",
+        f"{ZEPHYR_BASE}/scripts/pylib/twister/boards",
+    ]
 
     parser.add_argument(
         "-A", "--board-root", action="append", default=board_root_list,
@@ -399,9 +401,12 @@ structure in the main Zephyr tree: boards/<arch>/<board_name>/""")
         remove all artificats including those of failed tests, use 'all'.""")
 
     test_xor_generator.add_argument(
-        "-N", "--ninja", action="store_true",
-        default=not any(a in sys.argv for a in ("-k", "--make")),
-        help="Use the Ninja generator with CMake. (This is the default)")
+        "-N",
+        "--ninja",
+        action="store_true",
+        default=all(a not in sys.argv for a in ("-k", "--make")),
+        help="Use the Ninja generator with CMake. (This is the default)",
+    )
 
     test_xor_generator.add_argument(
         "-k", "--make", action="store_true",
@@ -721,7 +726,7 @@ def parse_arguments(parser, args, options = None):
                 double_dash = options.extra_test_args.index("--")
             except ValueError:
                 double_dash = len(options.extra_test_args)
-            unrecognized = " ".join(options.extra_test_args[0:double_dash])
+            unrecognized = " ".join(options.extra_test_args[:double_dash])
 
             logger.error("Unrecognized arguments found: '%s'. Use -- to "
                          "delineate extra arguments for test binary or pass "
@@ -754,15 +759,14 @@ class TwisterEnv:
 
         if options:
             self.test_roots = options.testsuite_root
-        else:
-            self.test_roots = None
-        if options:
-            if not isinstance(options.board_root, list):
-                self.board_roots = [self.options.board_root]
-            else:
-                self.board_roots = self.options.board_root
+            self.board_roots = (
+                self.options.board_root
+                if isinstance(options.board_root, list)
+                else [self.options.board_root]
+            )
             self.outdir = os.path.abspath(options.outdir)
         else:
+            self.test_roots = None
             self.board_roots = None
             self.outdir = None
 
@@ -782,8 +786,7 @@ class TwisterEnv:
                                      universal_newlines=True,
                                      cwd=ZEPHYR_BASE)
             if subproc.returncode == 0:
-                _version = subproc.stdout.strip()
-                if _version:
+                if _version := subproc.stdout.strip():
                     self.version = _version
                     logger.info(f"Zephyr version: {self.version}")
                 else:
@@ -807,7 +810,7 @@ class TwisterEnv:
 
         logger.debug("Running cmake script %s", script)
 
-        cmake_args = ["-D{}".format(a.replace('"', '')) for a in args[1:]]
+        cmake_args = [f"""-D{a.replace('"', '')}""" for a in args[1:]]
         cmake_args.extend(['-P', script])
 
         cmake = shutil.which('cmake')
@@ -818,11 +821,7 @@ class TwisterEnv:
         cmd = [cmake] + cmake_args
         log_command(logger, "Calling cmake", cmd)
 
-        kwargs = dict()
-        kwargs['stdout'] = subprocess.PIPE
-        # CMake sends the output of message() to stderr unless it's STATUS
-        kwargs['stderr'] = subprocess.STDOUT
-
+        kwargs = {'stdout': subprocess.PIPE, 'stderr': subprocess.STDOUT}
         p = subprocess.Popen(cmd, **kwargs)
         out, _ = p.communicate()
 
@@ -834,15 +833,13 @@ class TwisterEnv:
         out = ansi_escape.sub('', out.decode())
 
         if p.returncode == 0:
-            msg = "Finished running  %s" % (args[0])
+            msg = f"Finished running  {args[0]}"
             logger.debug(msg)
-            results = {"returncode": p.returncode, "msg": msg, "stdout": out}
+            return {"returncode": p.returncode, "msg": msg, "stdout": out}
 
         else:
-            logger.error("Cmake script failure: %s" % (args[0]))
-            results = {"returncode": p.returncode, "returnmsg": out}
-
-        return results
+            logger.error(f"Cmake script failure: {args[0]}")
+            return {"returncode": p.returncode, "returnmsg": out}
 
     def get_toolchain(self):
         toolchain_script = Path(ZEPHYR_BASE) / Path('cmake/verify-toolchain.cmake')
@@ -852,7 +849,7 @@ class TwisterEnv:
             if result['returncode']:
                 raise TwisterRuntimeError(f"E: {result['returnmsg']}")
         except Exception as e:
-            print(str(e))
+            print(e)
             sys.exit(2)
         self.toolchain = json.loads(result['stdout'])['ZEPHYR_TOOLCHAIN_VARIANT']
         logger.info(f"Using '{self.toolchain}' toolchain.")

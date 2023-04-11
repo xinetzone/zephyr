@@ -122,16 +122,10 @@ class DataTypes():
 
     def add_data_type(self, data_type, fmt):
         """Add one data type"""
-        if self.database.is_tgt_little_endian():
-            endianness = "<"
-        else:
-            endianness = ">"
-
+        endianness = "<" if self.database.is_tgt_little_endian() else ">"
         formatter = endianness + fmt
 
-        self.data_types[data_type] = {}
-        self.data_types[data_type]['fmt'] = formatter
-
+        self.data_types[data_type] = {'fmt': formatter}
         size = struct.calcsize(formatter)
 
         if data_type == self.LONG_DOUBLE:
@@ -143,10 +137,7 @@ class DataTypes():
 
         # Might need actual number for different architectures
         # but these seem to work fine for now.
-        if self.database.is_tgt_64bit():
-            self.data_types[data_type]['align'] = 8
-        else:
-            self.data_types[data_type]['align'] = 4
+        self.data_types[data_type]['align'] = 8 if self.database.is_tgt_64bit() else 4
 
 
     def get_sizeof(self, data_type):
@@ -169,11 +160,7 @@ class LogParserV1(LogParser):
     def __init__(self, database):
         super().__init__(database=database)
 
-        if self.database.is_tgt_little_endian():
-            endian = "<"
-        else:
-            endian = ">"
-
+        endian = "<" if self.database.is_tgt_little_endian() else ">"
         self.fmt_msg_type = endian + FMT_MSG_TYPE
         self.fmt_dropped_cnt = endian + FMT_DROPPED_CNT
 
@@ -193,21 +180,19 @@ class LogParserV1(LogParser):
     def __get_string(self, arg, arg_offset, string_tbl):
         one_str = self.database.find_string(arg)
         if one_str is not None:
-            ret = one_str
-        else:
-            # The index from the string table is basically
-            # the order in va_list. Need to add to the index
-            # to skip the packaged string header and
-            # the format string.
-            str_idx = arg_offset + self.data_types.get_sizeof(DataTypes.PTR) * 2
-            str_idx /= self.data_types.get_sizeof(DataTypes.INT)
+            return one_str
+        # The index from the string table is basically
+        # the order in va_list. Need to add to the index
+        # to skip the packaged string header and
+        # the format string.
+        str_idx = arg_offset + self.data_types.get_sizeof(DataTypes.PTR) * 2
+        str_idx /= self.data_types.get_sizeof(DataTypes.INT)
 
-            if int(str_idx) not in string_tbl:
-                ret = "<string@0x{0:x}>".format(arg)
-            else:
-                ret = string_tbl[int(str_idx)]
-
-        return ret
+        return (
+            "<string@0x{0:x}>".format(arg)
+            if int(str_idx) not in string_tbl
+            else string_tbl[int(str_idx)]
+        )
 
 
     def process_one_fmt_str(self, fmt_str, arg_list, string_tbl):

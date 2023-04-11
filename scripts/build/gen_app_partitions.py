@@ -117,9 +117,9 @@ def find_obj_file_partitions(filename, partitions):
             exit(f"Error: {filename}: {e}")
 
         if not full_lib:
-            sys.exit("Error parsing file: " + filename)
+            sys.exit(f"Error parsing file: {filename}")
 
-        sections = [x for x in full_lib.iter_sections()]
+        sections = list(full_lib.iter_sections())
         for section in sections:
             m = section_regex.match(section.name)
             if not m:
@@ -160,7 +160,7 @@ def parse_compile_command_file(partitions):
             build_dir = command.get('directory')
             compile_command = command.get('command')
             compile_arg = object_pattern.search(compile_command)
-            obj_file = None if compile_arg is None else compile_arg.group(1)
+            obj_file = None if compile_arg is None else compile_arg[1]
             if obj_file:
                 fullname = os.path.join(build_dir, obj_file)
                 # Because of issue #40635, then not all objects referenced by

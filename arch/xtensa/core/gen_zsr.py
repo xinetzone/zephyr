@@ -22,13 +22,12 @@ def get(s):
     return syms[s] if s in syms else 0
 
 with open(coreisa) as infile:
-    for line in infile.readlines():
-        m = re.match(r"^#define\s+([^ ]+)\s*(.*)", line.rstrip())
-        if m:
-            syms[m.group(1)] = m.group(2)
+    for line in infile:
+        if m := re.match(r"^#define\s+([^ ]+)\s*(.*)", line.rstrip()):
+            syms[m[1]] = m[2]
 
 # Use MISC registers first if available, that's what they're for
-regs = [ f"MISC{n}" for n in range(0, int(get("XCHAL_NUM_MISC_REGS"))) ]
+regs = [f"MISC{n}" for n in range(int(get("XCHAL_NUM_MISC_REGS")))]
 
 # Next come EXCSAVE. Also record our highest non-debug interrupt level.
 maxint = 0
@@ -43,9 +42,8 @@ irqoff_level = -1
 irqoff_int = -1
 for sym, val in syms.items():
     if val == "XTHAL_INTTYPE_SOFTWARE":
-        m = re.match(r"XCHAL_INT(\d+)_TYPE", sym)
-        if m:
-            intnum = int(m.group(1))
+        if m := re.match(r"XCHAL_INT(\d+)_TYPE", sym):
+            intnum = int(m[1])
             levelsym = f"XCHAL_INT{intnum}_LEVEL"
             if levelsym in syms:
                 intlevel = int(syms[levelsym])

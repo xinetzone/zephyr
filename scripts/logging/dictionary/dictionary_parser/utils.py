@@ -16,7 +16,7 @@ def convert_hex_file_to_bin(hexfile):
     bin_data = b''
 
     with open(hexfile, "r", encoding="iso-8859-1") as hfile:
-        for line in hfile.readlines():
+        for line in hfile:
             hex_str = line.strip()
 
             bin_str = binascii.unhexlify(hex_str)

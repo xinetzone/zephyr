@@ -12,7 +12,7 @@ def extract_fields_from_arg_list(target_fields: set, arg_list: str):
     Given a list of "FIELD=VALUE" args, extract values of args with a
     given field name and return the remaining args separately.
     """
-    extracted_fields = {f : list() for f in target_fields}
+    extracted_fields = {f: [] for f in target_fields}
     other_fields = []
 
     for field in arg_list.split(" "):
@@ -125,8 +125,7 @@ class TwisterConfigParser:
         elif typestr.startswith("map"):
             return value
         else:
-            raise ConfigurationError(
-                self.filename, "unknown type '%s'" % value)
+            raise ConfigurationError(self.filename, f"unknown type '{value}'")
 
     def get_scenario(self, name):
         """Get a dictionary representing the keys/values within a scenario
@@ -166,9 +165,9 @@ class TwisterConfigParser:
                     # but some keys are handled in adhoc way based on their
                     # semantics.
                     if k == "filter":
-                        d[k] = "(%s) and (%s)" % (d[k], v)
+                        d[k] = f"({d[k]}) and ({v})"
                     else:
-                        d[k] += " " + v
+                        d[k] += f" {v}"
             else:
                 d[k] = v
 
@@ -178,26 +177,26 @@ class TwisterConfigParser:
         #  (3) CONF_FILES extracted from scenarios[name]['extra_args']
         #  (4) scenarios[name]['extra_conf_files']
         d["extra_conf_files"] = \
-            extracted_common.get("CONF_FILE", []) + \
-            self.common.get("extra_conf_files", []) + \
-            extracted_testsuite.get("CONF_FILE", []) + \
-            self.scenarios[name].get("extra_conf_files", [])
+                extracted_common.get("CONF_FILE", []) + \
+                self.common.get("extra_conf_files", []) + \
+                extracted_testsuite.get("CONF_FILE", []) + \
+                self.scenarios[name].get("extra_conf_files", [])
 
         # Repeat the above for overlay confs and DTC overlay files
         d["extra_overlay_confs"] = \
-            extracted_common.get("OVERLAY_CONFIG", []) + \
-            self.common.get("extra_overlay_confs", []) + \
-            extracted_testsuite.get("OVERLAY_CONFIG", []) + \
-            self.scenarios[name].get("extra_overlay_confs", [])
+                extracted_common.get("OVERLAY_CONFIG", []) + \
+                self.common.get("extra_overlay_confs", []) + \
+                extracted_testsuite.get("OVERLAY_CONFIG", []) + \
+                self.scenarios[name].get("extra_overlay_confs", [])
 
         d["extra_dtc_overlay_files"] = \
-            extracted_common.get("DTC_OVERLAY_FILE", []) + \
-            self.common.get("extra_dtc_overlay_files", []) + \
-            extracted_testsuite.get("DTC_OVERLAY_FILE", []) + \
-            self.scenarios[name].get("extra_dtc_overlay_files", [])
+                extracted_common.get("DTC_OVERLAY_FILE", []) + \
+                self.common.get("extra_dtc_overlay_files", []) + \
+                extracted_testsuite.get("DTC_OVERLAY_FILE", []) + \
+                self.scenarios[name].get("extra_dtc_overlay_files", [])
 
         if any({len(x) > 0 for x in extracted_common.values()}) or \
-           any({len(x) > 0 for x in extracted_testsuite.values()}):
+               any({len(x) > 0 for x in extracted_testsuite.values()}):
             warnings.warn(
                 "Do not specify CONF_FILE, OVERLAY_CONFIG, or DTC_OVERLAY_FILE "
                 "in extra_args. This feature is deprecated and will soon "
@@ -208,28 +207,25 @@ class TwisterConfigParser:
 
         for k, kinfo in self.testsuite_valid_keys.items():
             if k not in d:
-                if "required" in kinfo:
-                    required = kinfo["required"]
-                else:
-                    required = False
-
+                required = kinfo["required"] if "required" in kinfo else False
                 if required:
                     raise ConfigurationError(
                         self.filename,
-                        "missing required value for '%s' in test '%s'" %
-                        (k, name))
-                else:
-                    if "default" in kinfo:
-                        default = kinfo["default"]
-                    else:
-                        default = self._cast_value("", kinfo["type"])
-                    d[k] = default
+                        f"missing required value for '{k}' in test '{name}'",
+                    )
+                default = (
+                    kinfo["default"]
+                    if "default" in kinfo
+                    else self._cast_value("", kinfo["type"])
+                )
+                d[k] = default
             else:
                 try:
                     d[k] = self._cast_value(d[k], kinfo["type"])
                 except ValueError:
                     raise ConfigurationError(
-                        self.filename, "bad %s value '%s' for key '%s' in name '%s'" %
-                                       (kinfo["type"], d[k], k, name))
+                        self.filename,
+                        f"""bad {kinfo["type"]} value '{d[k]}' for key '{k}' in name '{name}'""",
+                    )
 
         return d

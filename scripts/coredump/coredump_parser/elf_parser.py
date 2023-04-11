@@ -33,7 +33,7 @@ class CoredumpElfFile():
         self.elffile = elffile
         self.fd = None
         self.elf = None
-        self.memory_regions = list()
+        self.memory_regions = []
 
     def open(self):
         self.fd = open(self.elffile, "rb")
@@ -56,31 +56,32 @@ class CoredumpElfFile():
             if type(section) is not elftools.elf.sections.Section: # pylint: disable=unidiomatic-typecheck
                 continue
 
-            size = section['sh_size']
             flags = section['sh_flags']
-            sec_start = section['sh_addr']
-            sec_end = sec_start + size - 1
-
             store = False
             sect_desc = "?"
 
-            if section['sh_type'] == 'SHT_PROGBITS':
-                if (flags & SHF_ALLOC_EXEC) == SHF_ALLOC_EXEC:
+            if (flags & SHF_ALLOC_EXEC) == SHF_ALLOC_EXEC:
+                if section['sh_type'] == 'SHT_PROGBITS':
                     # Text section
                     store = True
                     sect_desc = "text"
-                elif (flags & SHF_WRITE_ALLOC) == SHF_WRITE_ALLOC:
-                    # Data section
-                    #
-                    # Running app changes the content so no need
-                    # to store
-                    pass
-                elif (flags & SHF_ALLOC) == SHF_ALLOC:
+            elif (flags & SHF_WRITE_ALLOC) == SHF_WRITE_ALLOC:
+                # Data section
+                #
+                # Running app changes the content so no need
+                # to store
+                pass
+            elif (flags & SHF_ALLOC) == SHF_ALLOC:
+                if section['sh_type'] == 'SHT_PROGBITS':
                     # Read only data section
                     store = True
                     sect_desc = "read-only data"
 
             if store:
+                size = section['sh_size']
+                sec_start = section['sh_addr']
+                sec_end = sec_start + size - 1
+
                 mem_region = {"start": sec_start, "end": sec_end, "data": section.data()}
                 logger.info("ELF Section: 0x%x to 0x%x of size %d (%s)" %
                             (mem_region["start"],

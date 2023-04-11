@@ -67,9 +67,7 @@ def process_pr(gh, maintainer_file, number):
     for f in pr.get_files():
         num_files += 1
         log(f"file: {f.filename}")
-        areas = maintainer_file.path2areas(f.filename)
-
-        if areas:
+        if areas := maintainer_file.path2areas(f.filename):
             all_areas.update(areas)
             for a in areas:
                 area_counter[a.name] += 1
@@ -82,7 +80,7 @@ def process_pr(gh, maintainer_file, number):
     log(f"labels: {labels}")
 
     # Create a list of collaborators ordered by the area match
-    collab = list()
+    collab = []
     for a in ac:
         collab += maintainer_file.areas[a].maintainers
         collab += maintainer_file.areas[a].collaborators
@@ -95,10 +93,8 @@ def process_pr(gh, maintainer_file, number):
     log(f"candidate maintainers: {sm}")
 
     maintainer = "None"
-    maintainers = list(sm.keys())
-
     prop = 0
-    if maintainers:
+    if maintainers := list(sm.keys()):
         maintainer = maintainers[0]
 
         if len(ac) > 1 and list(ac.values())[0] == list(ac.values())[1]:
@@ -114,10 +110,9 @@ def process_pr(gh, maintainer_file, number):
                     log("++ Platform takes precedence over subsystem...")
                     log(f"Set maintainer of area {aa}")
                     for a in all_areas:
-                        if a.name == aa:
-                            if a.maintainers:
-                                maintainer = a.maintainers[0]
-                                break
+                        if a.name == aa and a.maintainers:
+                            maintainer = a.maintainers[0]
+                            break
 
 
         # if the submitter is the same as the maintainer, check if we have
@@ -147,36 +142,30 @@ def process_pr(gh, maintainer_file, number):
                 if not args.dry_run:
                     pr.add_to_labels(l)
         else:
-            log(f"Too many labels to be applied")
+            log("Too many labels to be applied")
 
     if collab:
         reviewers = []
-        existing_reviewers = set()
-
         revs = pr.get_reviews()
-        for review in revs:
-            existing_reviewers.add(review.user)
-
+        existing_reviewers = {review.user for review in revs}
         rl = pr.get_review_requests()
-        page = 0
-        for r in rl:
+        for page, r in enumerate(rl):
             existing_reviewers |= set(r.get_page(page))
-            page += 1
-
         for c in collab:
             try:
                 u = gh.get_user(c)
-                if pr.user != u and gh_repo.has_in_collaborators(u):
-                    if u not in existing_reviewers:
-                        reviewers.append(c)
+                if (
+                    pr.user != u
+                    and gh_repo.has_in_collaborators(u)
+                    and u not in existing_reviewers
+                ):
+                    reviewers.append(c)
             except UnknownObjectException as e:
                 log(f"Can't get user '{c}', account does not exist anymore? ({e})")
 
         if len(existing_reviewers) < 15:
             reviewer_vacancy = 15 - len(existing_reviewers)
-            reviewers = reviewers[:reviewer_vacancy]
-
-            if reviewers:
+            if reviewers := reviewers[:reviewer_vacancy]:
                 try:
                     log(f"adding reviewers {reviewers}...")
                     if not args.dry_run:
@@ -187,14 +176,14 @@ def process_pr(gh, maintainer_file, number):
             log("not adding reviewers because the existing reviewer count is greater than or "
                 "equal to 15")
 
-    ms = []
     # assignees
     if maintainer != 'None' and not pr.assignee:
+        ms = []
         try:
             u = gh.get_user(maintainer)
             ms.append(u)
         except GithubException:
-            log(f"Error: Unknown user")
+            log("Error: Unknown user")
 
         for mm in ms:
             log(f"Adding assignee {mm}...")

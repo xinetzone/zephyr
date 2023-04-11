@@ -38,14 +38,11 @@ def main():
 
 
 def is_vif_element(name):
-    if name in constants.VIF_ELEMENTS:
-        return True
-    return False
+    return name in constants.VIF_ELEMENTS
 
 
 def get_vif_element_name(name):
-    return constants.XML_ELEMENT_NAME_PREFIX + ":" + constants.DT_VIF_ELEMENTS.get(
-        name, name)
+    return f"{constants.XML_ELEMENT_NAME_PREFIX}:{constants.DT_VIF_ELEMENTS.get(name, name)}"
 
 
 def get_root():
@@ -80,9 +77,7 @@ def add_elements_to_xml(xml_ele, elements):
 
 
 def is_simple_datatype(value):
-    if isinstance(value, (str, int, bool)):
-        return True
-    return False
+    return isinstance(value, (str, int, bool))
 
 
 def get_pdo_type(pdo_value):
@@ -90,14 +85,12 @@ def get_pdo_type(pdo_value):
 
 
 def get_xml_bool_value(value):
-    if value:
-        return constants.TRUE
-    return constants.FALSE
+    return constants.TRUE if value else constants.FALSE
 
 
 def parse_and_add_sink_pdos_to_xml(xml_ele, sink_pdos):
     new_xml_ele = add_element_to_xml(xml_ele, constants.SINK_PDOS)
-    pdos_info = dict()
+    pdos_info = {}
     snk_max_power = 0
     for pdo_value in sink_pdos:
         power_mv = parse_and_add_sink_pdo_to_xml(new_xml_ele, pdo_value, pdos_info)
@@ -168,8 +161,7 @@ def parse_and_add_sink_pdo_to_xml(xml_ele, pdo_value, pdos_info):
                            f'{current_ma} mA',
                            {constants.VALUE: str(current)})
     elif pdo_type == constants.PDO_TYPE_AUGUMENTED:
-        pps = (pdo_value >> 28) & 0x03
-        if pps:
+        if pps := (pdo_value >> 28) & 0x03:
             raise ValueError(f'ERROR: Invalid PDO_TYPE {pdo_value}')
         pps_max_voltage = (pdo_value >> 17) & 0xff
         pps_max_voltage_mv = pps_max_voltage * 100

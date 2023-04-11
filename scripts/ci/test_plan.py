@@ -52,7 +52,7 @@ def _get_match_fn(globs, regexes):
 
         # The glob regexes must anchor to the beginning of the path, since we
         # return search(). (?:) is a non-capturing group.
-        regex += "^(?:{})".format("|".join(glob_regexes))
+        regex += f'^(?:{"|".join(glob_regexes)})'
 
     if regexes:
         if regex:
@@ -82,7 +82,7 @@ class Tag:
             (self._exclude_match_fn and self._exclude_match_fn(path))
 
     def __repr__(self):
-        return "<Tag {}>".format(self.name)
+        return f"<Tag {self.name}>"
 
 class Filters:
     def __init__(self, modified_files, pull_request=False, platforms=[]):
@@ -132,20 +132,19 @@ class Filters:
             p = re.match(r"^arch\/([^/]+)\/", f)
             if not p:
                 p = re.match(r"^include\/arch\/([^/]+)\/", f)
-            if p:
-                if p.group(1) != 'common':
-                    if p.group(1) == 'riscv':
-                        archs.add('riscv32')
-                        archs.add('riscv64')
-                    else:
-                        archs.add(p.group(1))
+            if p and p[1] != 'common':
+                if p[1] == 'riscv':
+                    archs.add('riscv32')
+                    archs.add('riscv64')
+                else:
+                    archs.add(p[1])
 
         _options = []
         for arch in archs:
             _options.extend(["-a", arch ])
 
         if _options:
-            logging.info(f'Potential architecture filters...')
+            logging.info('Potential architecture filters...')
             if self.platforms:
                 for platform in self.platforms:
                     _options.extend(["-p", platform])
@@ -163,7 +162,7 @@ class Filters:
                 continue
             p = re.match(r"^boards\/[^/]+\/([^/]+)\/", f)
             if p and p.groups():
-                boards.add(p.group(1))
+                boards.add(p[1])
 
         # Limit search to $ZEPHYR_BASE since this is where the changed files are
         lb_args = argparse.Namespace(**{ 'arch_roots': [repository_path], 'board_roots': [repository_path] })
@@ -184,7 +183,7 @@ class Filters:
             _options.extend(["-p", board ])
 
         if _options:
-            logging.info(f'Potential board filters...')
+            logging.info('Potential board filters...')
             self.get_plan(_options)
 
     def find_tests(self):
@@ -238,7 +237,7 @@ class Filters:
             # Like tag._match_fn(path), but for files-exclude and
             # files-regex-exclude
             tag._exclude_match_fn = \
-                _get_match_fn(x.get("files-exclude"), x.get("files-regex-exclude"))
+                    _get_match_fn(x.get("files-exclude"), x.get("files-regex-exclude"))
 
             tags[tag.name] = tag
 
@@ -247,11 +246,7 @@ class Filters:
                 if t._contains(f):
                     t.exclude = False
 
-        exclude_tags = set()
-        for t in tags.values():
-            if t.exclude:
-                exclude_tags.add(t.name)
-
+        exclude_tags = {t.name for t in tags.values() if t.exclude}
         for tag in exclude_tags:
             self.tag_options.extend(["-e", tag ])
 
@@ -277,7 +272,7 @@ class Filters:
 
         if sorted(files) != sorted(found):
             _options = []
-            logging.info(f'Need to run full or partial twister...')
+            logging.info('Need to run full or partial twister...')
             self.full_twister = True
             if self.platforms:
                 for platform in self.platforms:
@@ -289,7 +284,7 @@ class Filters:
                 _options.extend(self.tag_options)
                 self.get_plan(_options, True)
         else:
-            logging.info(f'No twister needed or partial twister run only...')
+            logging.info('No twister needed or partial twister run only...')
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -375,8 +370,7 @@ if __name__ == "__main__":
 
     # write plan
     if dup_free:
-        data = {}
-        data['testsuites'] = dup_free
+        data = {'testsuites': dup_free}
         with open(args.output_file, 'w', newline='') as json_file:
             json.dump(data, json_file, indent=4, separators=(',',':'))
 
